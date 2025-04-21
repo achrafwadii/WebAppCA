@@ -1,0 +1,145 @@
+﻿@model List<WebAppCA.Models.DeviceInfoModel>
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-cpu"></i> Liste des équipements</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#deviceModal">
+            <i class="bi bi-plus-circle"></i> Ajouter un équipement
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="bi bi-pc-display"></i> Nom de l'appareil</th>
+                            <th><i class="bi bi-fingerprint"></i> ID</th>
+                            <th><i class="bi bi-globe"></i> Adresse IP</th>
+                            <th><i class="bi bi-circle-fill"></i> Status</th>
+                            <th><i class="bi bi-gear"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model != null && Model.Any())
+                        {
+                            foreach (var device in Model)
+                            {
+                                <tr>
+                                    <td>@device.DeviceName</td>
+                                    <td>@device.DeviceID</td>
+                                    <td>@device.IPAddress</td>
+                                    <td>
+                                        <span class="badge @(device.ConnectionStatus == "Connecté" ? "bg-success" : "bg-secondary")">
+                                            @device.ConnectionStatus
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <form asp-controller="Device" asp-action="Connect" method="post">
+                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
+                                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Connecter">
+                                                    <i class="bi bi-plug"></i>
+                                                </button>
+                                            </form>
+                                            <form asp-controller="Device" asp-action="ReadLogs" method="post">
+                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
+                                                <button type="submit" class="btn btn-sm btn-outline-info" title="Voir logs">
+                                                    <i class="bi bi-file-text"></i>
+                                                </button>
+                                            </form>
+                                            <form asp-controller="Device" asp-action="Reboot" method="post">
+                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
+                                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Redémarrer">
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </button>
+                                            </form>
+                                            <form asp-controller="Device" asp-action="Reset" method="post">
+                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Réinitialiser">
+                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="text-center py-4">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle"></i> Aucun appareil trouvé
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal d'ajout d'équipement -->
+<div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="deviceModalLabel">
+                    <i class="bi bi-plus-circle"></i> Ajouter un équipement
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <form asp-controller="Device" asp-action="ScanDevice" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Adresse IP</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                            <input name="ip" id="ip" class="form-control" placeholder="192.168.56.1" required />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Port</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-ethernet"></i></span>
+                            <input name="port" id="port" class="form-control" value="51211" required />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Chercher
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .table th {
+            white-space: nowrap;
+        }
+
+        .btn-group .btn {
+            margin-right: 5px;
+        }
+
+            .btn-group .btn:last-child {
+                margin-right: 0;
+            }
+
+        .badge {
+            font-size: 0.85em;
+            padding: 0.35em 0.65em;
+        }
+    </style>
+}

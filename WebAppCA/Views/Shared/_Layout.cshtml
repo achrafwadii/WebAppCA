@@ -1,0 +1,184 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+@RenderSection("Styles", required: false)
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - TimeTrack</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #1976d2;
+            --secondary-color: #dc004e;
+            --nav-link-height: 50px; /* Taille des liens */
+        }
+
+        body {
+            display: flex;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            height: 100vh;
+            position: fixed;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-nav {
+            padding: 10px 15px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .nav-link {
+            color: rgba(255,255,255,0.8);
+            border-radius: 5px;
+            padding: 0 15px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            height: var(--nav-link-height);
+            font-size: 1.1rem;
+        }
+
+            .nav-link:hover, .nav-link.active {
+                background-color: var(--primary-color);
+                color: white;
+                text-decoration: none;
+            }
+
+            .nav-link i {
+                margin-right: 15px;
+                font-size: 1.3rem;
+            }
+
+        .logout-link {
+            margin-top: auto;
+            margin-bottom: 20px;
+        }
+
+        /* Styles pour le menu déroulant */
+        .menu-dropdown {
+            display: none; /* Caché par défaut */
+            flex-direction: column;
+            padding-left: 20px;
+        }
+
+            .menu-dropdown .nav-link {
+                height: 45px; /* Légèrement plus petit que les liens principaux */
+                font-size: 1rem;
+            }
+
+        .menu-toggle {
+            cursor: pointer;
+            position: relative;
+        }
+
+            .menu-toggle::after {
+                content: "\F282"; /* Icône flèche bas Bootstrap Icons */
+                font-family: "bootstrap-icons";
+                position: absolute;
+                right: 15px;
+                transition: transform 0.3s;
+            }
+
+            .menu-toggle.active::after {
+                transform: rotate(180deg);
+            }
+
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h4>TimeTrack</h4>
+        </div>
+        <nav class="sidebar-nav">
+            <a asp-page="/Home/Index" class="nav-link">
+                <i class="bi bi-house"></i> Accueil
+            </a>
+
+            <!-- Menu déroulant -->
+            <div class="nav-link menu-toggle">
+                <i class="bi bi-list"></i> Menu
+            </div>
+            <div class="menu-dropdown">
+                <a asp-page="/Home/Index" class="nav-link">
+                    <i class="bi bi-gear"></i> Paramètres
+                </a>
+                <a href="#" class="nav-link">
+                    <i class="bi bi-usb-plug"></i> Port
+                </a>
+                <a href="https://www.supremainc.com/en/solutions/access-control-system.asp" class="nav-link">
+                    <i class="bi bi-question-circle"></i> À propos
+                </a>
+            </div>
+            <a asp-page="/Home/Index" class="nav-link">
+                <i class="bi bi-speedometer2"></i> Tableau de bord
+            </a>
+            <a asp-page="/Users/Index" class="nav-link">
+                <i class="bi bi-people"></i> Utilisateurs
+            </a>
+            <a asp-page="/Home/Index" class="nav-link">
+                <i class="bi bi-pc-display"></i> Équipements
+            </a>
+            <a asp-page="/Doors/Index" class="nav-link">
+                <i class="bi bi-door-open"></i> Portes
+            </a>
+            <a asp-page="/Attendance/Index" class="nav-link">
+                <i class="bi bi-calendar-check"></i> Gestion de Présence
+            </a>
+            <a asp-page="/Reports/Index" class="nav-link">
+                <i class="bi bi-file-earmark-bar-graph"></i> Rapports
+            </a>
+            </a>
+            <a href="@Url.Action("Logout", "Account")" class="nav-link logout-link">
+                <i class="bi bi-box-arrow-right"></i> Déconnexion
+            </a>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        @RenderBody()
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Gestion du menu déroulant
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            const dropdown = this.nextElementSibling;
+
+            if (dropdown.style.display === 'flex') {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'flex';
+            }
+        });
+    </script>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
