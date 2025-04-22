@@ -1,0 +1,86 @@
+﻿@{
+    ViewData["Title"] = "Menu - TimeTrack";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list"></i> Menu</h2>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-gear display-4 text-primary mb-3"></i>
+                    <h5 class="card-title">Paramètres</h5>
+                    <p class="card-text">Configuration du système</p>
+                    <a asp-page="/Home/Index" class="btn btn-outline-primary">Accéder</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-usb-plug display-4 text-success mb-3"></i>
+                    <h5 class="card-title">Port</h5>
+                    <p class="card-text">Gestion des ports de communication</p>
+                    <a href="#" class="btn btn-outline-success">Accéder</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-question-circle display-4 text-info mb-3"></i>
+                    <h5 class="card-title">À propos</h5>
+                    <p class="card-text">Informations sur le système</p>
+                    <a href="https://www.supremainc.com/en/solutions/access-control-system.asp"
+                       class="btn btn-outline-info" target="_blank">Accéder</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-tools"></i> Outils système</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-database"></i> Sauvegarde
+                    </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-arrow-repeat"></i> Redémarrer
+                    </button>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-shield-check"></i> Vérifier les mises à jour
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .card {
+            transition: transform 0.2s;
+        }
+
+            .card:hover {
+                transform: translateY(-5px);
+            }
+
+        .display-4 {
+            font-size: 2.5rem;
+        }
+    </style>
+}
