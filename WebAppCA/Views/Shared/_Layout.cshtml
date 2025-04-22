@@ -116,45 +116,31 @@
             <h4>TimeTrack</h4>
         </div>
         <nav class="sidebar-nav">
-            <a asp-page="/Home/Index" class="nav-link">
+            <a asp-controller="Home" asp-action="Index" class="nav-link">
                 <i class="bi bi-house"></i> Accueil
             </a>
-
-            <!-- Menu déroulant -->
-            <div class="nav-link menu-toggle">
+            <a asp-controller="Home" asp-action="Menu" class="nav-link">
                 <i class="bi bi-list"></i> Menu
-            </div>
-            <div class="menu-dropdown">
-                <a asp-page="/Home/Index" class="nav-link">
-                    <i class="bi bi-gear"></i> Paramètres
-                </a>
-                <a href="#" class="nav-link">
-                    <i class="bi bi-usb-plug"></i> Port
-                </a>
-                <a href="https://www.supremainc.com/en/solutions/access-control-system.asp" class="nav-link">
-                    <i class="bi bi-question-circle"></i> À propos
-                </a>
-            </div>
-            <a asp-page="/Home/Index" class="nav-link">
+            </a>
+            <a asp-controller="Home" asp-action="Dashboard" class="nav-link">
                 <i class="bi bi-speedometer2"></i> Tableau de bord
             </a>
-            <a asp-page="/Users/Index" class="nav-link">
+            <a asp-controller="Home" asp-action="Attendance" class="nav-link">
                 <i class="bi bi-people"></i> Utilisateurs
             </a>
-            <a asp-page="/Home/Index" class="nav-link">
+            <a asp-controller="Device" asp-action="Index" class="nav-link">
                 <i class="bi bi-pc-display"></i> Équipements
             </a>
-            <a asp-page="/Doors/Index" class="nav-link">
+            <a asp-controller="Door" asp-action="Index" class="nav-link">
                 <i class="bi bi-door-open"></i> Portes
             </a>
-            <a asp-page="/Attendance/Index" class="nav-link">
+            <a asp-controller="Home" asp-action="Attendance" class="nav-link">
                 <i class="bi bi-calendar-check"></i> Gestion de Présence
             </a>
-            <a asp-page="/Reports/Index" class="nav-link">
+            <a asp-controller="Home" asp-action="Reports" class="nav-link">
                 <i class="bi bi-file-earmark-bar-graph"></i> Rapports
             </a>
-            </a>
-            <a href="@Url.Action("Logout", "Account")" class="nav-link logout-link">
+            <a asp-controller="Account" asp-action="Logout" class="nav-link logout-link">
                 <i class="bi bi-box-arrow-right"></i> Déconnexion
             </a>
         </nav>

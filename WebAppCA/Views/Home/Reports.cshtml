@@ -1,0 +1,102 @@
+﻿@{
+    ViewData["Title"] = "Rapports - TimeTrack";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-bar-graph"></i> Rapports</h2>
+        <button class="btn btn-primary">
+            <i class="bi bi-download"></i> Exporter tous
+        </button>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="card-title mb-0"><i class="bi bi-people"></i> Rapport utilisateurs</h5>
+                        <span class="badge bg-primary">Nouveau</span>
+                    </div>
+                    <p class="card-text">Liste complète des utilisateurs avec leurs permissions et accès.</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-door-open"></i> Rapport des accès</h5>
+                    <p class="card-text">Historique complet des accès aux différentes portes.</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <h5 class="card-title mb-3"><i class="bi bi-calendar-check"></i> Rapport de présence</h5>
+                    <p class="card-text">Synthèse des heures de présence du personnel.</p>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Statistiques mensuelles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Aucune donnée statistique disponible
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Alertes et anomalies</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Aucune alerte récente
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .card {
+            transition: transform 0.2s;
+        }
+
+            .card:hover {
+                transform: translateY(-5px);
+            }
+    </style>
+}

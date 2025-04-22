@@ -1,23 +1,53 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 
-public class HomeController : Controller
+namespace WebAppCA.Controllers
 {
-    public IActionResult Index()
+    public class HomeController : Controller
     {
-        if (HttpContext.Session.GetString("IsAuthenticated") != "true")
+        public IActionResult Index()
         {
-            return RedirectToAction("Login", "Account");
+            if (HttpContext.Session.GetString("IsAuthenticated") != "true")
+            {
+                return RedirectToAction("Login", "Account");
+            }
+            return View();
         }
-        return View();
-    }
 
-    public IActionResult About()
-    {
-        return View();
-    }
+        public IActionResult About()
+        {
+            return View();
+        }
 
-    public IActionResult Help()
-    {
-        return View();
+        public IActionResult Help()
+        {
+            return View();
+        }
+
+        public IActionResult Dashboard()
+        {
+            return View();
+        }
+
+        public IActionResult Attendance()
+        {
+            return View();
+        }
+
+        public IActionResult Reports()
+        {
+            return View();
+        }
+
+        public IActionResult Menu()
+        {
+            return View();
+        }
+
+        public IActionResult Doors()
+        {
+            // Redirect to DoorController.Index (note the singular Door)
+            return RedirectToAction("Index", "Door");
+        }
     }
 }

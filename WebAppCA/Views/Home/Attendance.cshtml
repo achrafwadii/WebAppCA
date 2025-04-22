@@ -1,0 +1,75 @@
+﻿@{
+    ViewData["Title"] = "Gestion de Présence - TimeTrack";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-calendar-check"></i> Gestion de Présence</h2>
+        <div>
+            <button class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle"></i> Ajouter un pointage
+            </button>
+            <button class="btn btn-outline-secondary">
+                <i class="bi bi-download"></i> Exporter
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Date de début</label>
+                    <input type="date" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date de fin</label>
+                    <input type="date" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Utilisateur</label>
+                    <select class="form-select">
+                        <option>Tous les utilisateurs</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Filtrer
+                    </button>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th><i class="bi bi-person"></i> Utilisateur</th>
+                            <th><i class="bi bi-calendar"></i> Date</th>
+                            <th><i class="bi bi-clock"></i> Heure d'entrée</th>
+                            <th><i class="bi bi-clock-history"></i> Heure de sortie</th>
+                            <th><i class="bi bi-stopwatch"></i> Durée</th>
+                            <th><i class="bi bi-door-open"></i> Point d'accès</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="text-center py-4">
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Aucun pointage trouvé
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .table th {
+            white-space: nowrap;
+        }
+    </style>
+}
