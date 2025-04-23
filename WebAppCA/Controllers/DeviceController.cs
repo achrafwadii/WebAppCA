@@ -48,7 +48,7 @@ namespace WebAppCA.Controllers
                     return BadRequest(new { Error = "IP address is required" });
                 }
 
-                var device = await _sdkService.ConnectDeviceAsync(request.IpAddress, request.Port ?? 51211);
+                var device = await _sdkService.ConnectDeviceAsync(request.IpAddress);
                 if (device == null)
                 {
                     return BadRequest(new { Error = "Failed to connect to device" });

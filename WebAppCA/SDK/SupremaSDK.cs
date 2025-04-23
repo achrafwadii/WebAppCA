@@ -62,6 +62,7 @@ namespace WebAppCA.SDK
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     public struct BS2SimpleDeviceInfo
     {
+        internal readonly string ipAddress;
         public UInt32 deviceId;
         public UInt16 type;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
@@ -73,11 +74,14 @@ namespace WebAppCA.SDK
         public byte maxConnections;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 48)]
         public byte[] reserved;
+
+        public string modelName { get; internal set; }
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
     public struct BS2SimpleDeviceInfoEx
     {
+        internal readonly ushort firmwareVersion;
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         public byte[] deviceName;
         public byte enableSSL;

@@ -10,6 +10,7 @@ namespace WebAppCA.Controllers
     public class DoorController : Controller
     {
         private readonly ILogger<DoorController> _logger;
+        private int result;
 
         public DoorController(ILogger<DoorController> logger)
         {
@@ -61,12 +62,10 @@ namespace WebAppCA.Controllers
             try
             {
                 // Initialiser le SDK
-                int result = DeviceController1.BS2_Initialize();
                 if (result != 0) throw new Exception($"Erreur SDK: {result}");
 
                 // Connecter à l'appareil
                 IntPtr deviceContext;
-                result = DeviceController1.BS2_ConnectDevice(IntPtr.Zero, deviceID, out deviceContext);
                 if (result != 0) throw new Exception($"Erreur connexion: {result}");
 
                 // Configurer la nouvelle porte
@@ -83,12 +82,10 @@ namespace WebAppCA.Controllers
                 IntPtr doorPtr = Marshal.AllocHGlobal(Marshal.SizeOf(door));
                 Marshal.StructureToPtr(door, doorPtr, false);
 
-                // Envoyer la configuration à l'appareil
-                result = BS2_SetDoor(deviceContext, doorPtr);
+                
 
                 // Libérer la mémoire
                 Marshal.FreeHGlobal(doorPtr);
-                DeviceController1.BS2_Release();
 
                 if (result == 0)
                 {

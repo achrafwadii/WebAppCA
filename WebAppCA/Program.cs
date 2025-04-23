@@ -25,7 +25,8 @@ if (!pathVariable.Contains(libPath))
 // Add services
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<BioStarService>();
+builder.Services.AddSingleton<SupremaSDKService>();
+builder.Services.AddSingleton<DeviceControlService>();
 builder.Services.AddSession(options =>
 {
     options.Cookie.HttpOnly = true;
@@ -35,4 +36,21 @@ builder.Services.AddSession(options =>
 
 var app = builder.Build();
 
-// Configure pipeline
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+app.UseAuthorization();
+app.UseSession();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.Run();

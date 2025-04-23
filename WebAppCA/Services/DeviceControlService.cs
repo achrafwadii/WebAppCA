@@ -190,7 +190,7 @@ namespace WebAppCA.Services
             return new DeviceInfoResult
             {
                 Success = true,
-                DeviceId = deviceInfo.deviceID,
+                DeviceId = deviceInfo.deviceId,
                 IpAddress = deviceInfo.ipAddress,
                 Port = deviceInfo.port,
                 ModelName = deviceInfo.modelName,

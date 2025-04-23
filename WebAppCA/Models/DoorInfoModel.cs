@@ -8,6 +8,8 @@
         public string DeviceName { get; set; } // Pour l'affichage
         public byte RelayPort { get; set; }
         public byte Mode { get; set; }
-        public string Status { get; set; } // État de la porte (ouvert/fermé)
+        public string Status { get; set; } 
+
+
     }
 }

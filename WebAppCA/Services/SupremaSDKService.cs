@@ -262,5 +262,10 @@ namespace WebAppCA.Services
                 _logger.LogInformation("Suprema SDK released");
             }
         }
+
+        internal async Task<bool> ConnectDeviceAsync(uint deviceId)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
