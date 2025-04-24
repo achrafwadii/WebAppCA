@@ -62,7 +62,7 @@ public class AccountController : Controller
             HttpContext.Session.SetString("Username", user.Username);
             HttpContext.Session.SetString("Email", user.Email);
 
-            return RedirectToAction("Index", "Home");
+            return RedirectToAction("Dashboard", "Home");
         }
         catch (Exception ex)
         {

@@ -49,5 +49,13 @@ namespace WebAppCA.Controllers
             // Redirect to DoorController.Index (note the singular Door)
             return RedirectToAction("Index", "Door");
         }
+        public IActionResult Welcome()
+        {
+            // Cette action affichera la page d'accueil sans vérifier l'authentification
+            return View();
+        }
+
+
+
     }
 }
