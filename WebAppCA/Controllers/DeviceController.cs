@@ -1,156 +1,206 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using WebAppCA.Models;
+using WebAppCA.Services;
 
 namespace WebAppCA.Controllers
 {
-    public class DeviceController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    public class DeviceController1 : ControllerBase
     {
-        private readonly ILogger<DeviceController> _logger;
+        private readonly ILogger<DeviceController1> _logger;
+        private readonly SupremaSDKService _sdkService;
 
-        public DeviceController(ILogger<DeviceController> logger)
+        public DeviceController1(
+            ILogger<DeviceController1> logger,
+            SupremaSDKService sdkService)
         {
             _logger = logger;
+            _sdkService = sdkService;
         }
 
-        // === P/Invoke des fonctions SDK ===
-        private const string DllName = "BS_SDK_V2.dll";
-
-        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_Initialize();
-
-        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_Release();
-
-        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_ConnectDevice(IntPtr context, uint deviceId, out IntPtr device);
-
-        // Structure pour les informations de l'appareil (à adapter selon le SDK)
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        public struct BS2DeviceInfo
-        {
-            public uint id;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-            public string name;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 16)]
-            public string ip;
-            public ushort port;
-            // Ajouter d'autres champs selon la documentation du SDK
-        }
-
-        // GET: /Device/Index
-        public IActionResult Index()
-        {
-            var devices = new List<DeviceInfoModel>();
-            return View("~/Views/Home/Index.cshtml", devices);
-        }
-
-        // POST: /Device/ScanDevice
-        [HttpPost]
-        public IActionResult ScanDevice(string ip, int port)
+        [HttpGet]
+        public IActionResult GetConnectedDevices()
         {
             try
             {
-                // Initialiser le SDK
-                int result = BS2_Initialize();
-                if (result != 0)
-                {
-                    _logger.LogError($"Échec de l'initialisation du SDK. Code d'erreur: {result}");
-                    return StatusCode(500, $"Erreur d'initialisation du SDK. Code: {result}");
-                }
-
-                // Ici vous devriez normalement utiliser BS2_SearchDeviceViaIP ou similaire
-                // Pour l'exemple, nous simulons un appareil trouvé
-                var device = new DeviceInfoModel
-                {
-                    DeviceID = 1, // Changed to uint value
-                    DeviceName = "Device Demo",
-                    IPAddress = ip,
-                    Port = port,
-                    ConnectionStatus = "Connected"
-                };
-
-                // Libérer le SDK après utilisation
-                BS2_Release();
-
-                return Ok(new List<DeviceInfoModel> { device });
-            }
-            catch (DllNotFoundException ex)
-            {
-                _logger.LogError(ex, "DLL du SDK non trouvée");
-                return StatusCode(500, "DLL du SDK BioStark non trouvée. Vérifiez l'installation.");
-            }
-            catch (AccessViolationException ex)
-            {
-                _logger.LogError(ex, "Erreur d'accès mémoire lors de l'utilisation du SDK");
-                return StatusCode(500, "Erreur d'accès mémoire avec le SDK BioStark");
+                var devices = _sdkService.GetConnectedDevices();
+                return Ok(devices);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur inattendue lors de la numérisation des appareils");
-                return StatusCode(500, "Erreur interne du serveur");
+                _logger.LogError(ex, "Error getting connected devices");
+                return StatusCode(500, new { Error = "Failed to get connected devices" });
             }
         }
 
-        // POST: /Device/Connect
-        [HttpPost]
-        public IActionResult Connect(uint deviceID)
+        [HttpPost("connect")]
+        public async Task<IActionResult> ConnectDevice([FromBody] ConnectDeviceRequest request)
         {
             try
             {
-                BS2_Initialize();
-
-                IntPtr devicePtr;
-                int result = BS2_ConnectDevice(IntPtr.Zero, deviceID, out devicePtr);
-
-                if (result == 0)
+                if (string.IsNullOrEmpty(request.IpAddress))
                 {
-                    TempData["Message"] = $"Connecté avec succès à l'appareil {deviceID}";
-                }
-                else
-                {
-                    TempData["Error"] = $"Échec de la connexion à l'appareil {deviceID}. Code d'erreur: {result}";
+                    return BadRequest(new { Error = "IP address is required" });
                 }
 
-                BS2_Release();
+                var device = await _sdkService.ConnectDeviceAsync(request.IpAddress);
+                if (device == null)
+                {
+                    return BadRequest(new { Error = "Failed to connect to device" });
+                }
+
+                return Ok(device);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Erreur lors de la connexion à l'appareil {deviceID}");
-                TempData["Error"] = $"Erreur lors de la connexion à l'appareil {deviceID}";
+                _logger.LogError(ex, "Error connecting to device {IP}", request.IpAddress);
+                return StatusCode(500, new { Error = "Failed to connect to device" });
             }
-
-            return RedirectToAction("Index");
         }
 
-        // POST: /Device/ReadLogs
-        [HttpPost]
-        public IActionResult ReadLogs(uint deviceID)
+        [HttpPost("{deviceId}/disconnect")]
+        public async Task<IActionResult> DisconnectDevice(uint deviceId)
         {
-            // Implémentation similaire à Connect, utilisant BS2_GetLog
-            TempData["Message"] = $"Logs lus pour l'appareil {deviceID} (simulation)";
-            return RedirectToAction("Index");
+            try
+            {
+                var result = await _sdkService.DisconnectDeviceAsync(deviceId);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to disconnect device" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error disconnecting device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to disconnect device" });
+            }
         }
 
-        // POST: /Device/Reboot
-        [HttpPost]
-        public IActionResult Reboot(uint deviceID)
+        [HttpGet("{deviceId}/time")]
+        public async Task<IActionResult> GetDeviceTime(uint deviceId)
         {
-            // Implémentation utilisant BS2_RebootDevice
-            TempData["Message"] = $"Appareil {deviceID} redémarré (simulation)";
-            return RedirectToAction("Index");
+            try
+            {
+                var time = await _sdkService.GetDeviceTimeAsync(deviceId);
+                if (time == null)
+                {
+                    return BadRequest(new { Error = "Failed to get device time" });
+                }
+
+                return Ok(new { Time = time });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting device time for device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to get device time" });
+            }
         }
 
-        // POST: /Device/Reset
-        [HttpPost]
-        public IActionResult Reset(uint deviceID)
+        [HttpPost("{deviceId}/time")]
+        public async Task<IActionResult> SetDeviceTime(uint deviceId, [FromBody] SetTimeRequest request)
         {
-            // Implémentation utilisant BS2_FactoryReset
-            TempData["Message"] = $"Appareil {deviceID} réinitialisé (simulation)";
-            return RedirectToAction("Index");
+            try
+            {
+                var result = await _sdkService.SetDeviceTimeAsync(deviceId, request?.DateTime);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to set device time" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error setting device time for device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to set device time" });
+            }
+        }
+
+        [HttpPost("{deviceId}/reboot")]
+        public async Task<IActionResult> RebootDevice(uint deviceId)
+        {
+            try
+            {
+                var result = await _sdkService.RebootDeviceAsync(deviceId);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to reboot device" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error rebooting device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to reboot device" });
+            }
+        }
+
+        [HttpPost("{deviceId}/factoryReset")]
+        public async Task<IActionResult> FactoryReset(uint deviceId)
+        {
+            try
+            {
+                var result = await _sdkService.FactoryResetAsync(deviceId);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to factory reset device" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error factory resetting device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to factory reset device" });
+            }
+        }
+
+        [HttpPost("{deviceId}/lock")]
+        public async Task<IActionResult> LockDevice(uint deviceId)
+        {
+            try
+            {
+                var result = await _sdkService.LockDeviceAsync(deviceId);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to lock device" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error locking device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to lock device" });
+            }
+        }
+
+        [HttpPost("{deviceId}/unlock")]
+        public async Task<IActionResult> UnlockDevice(uint deviceId)
+        {
+            try
+            {
+                var result = await _sdkService.UnlockDeviceAsync(deviceId);
+                if (!result)
+                {
+                    return BadRequest(new { Error = "Failed to unlock device" });
+                }
+
+                return Ok(new { Success = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unlocking device {DeviceId}", deviceId);
+                return StatusCode(500, new { Error = "Failed to unlock device" });
+            }
         }
     }
 }

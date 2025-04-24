@@ -10,6 +10,10 @@
   <Content Include="BioStarSDK\**\*.dll" CopyToOutputDirectory="PreserveNewest" />
 </ItemGroup>
 <ItemGroup>
+  <PackageReference Include="MartinCostello.Logging.XUnit" Version="0.5.1" />
+  <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.4" />
+</ItemGroup>
+<ItemGroup>
   <Content Update="BioStarSDK\lib\BS_SDK_V2.dll">
     <CopyToOutputDirectory>Always</CopyToOutputDirectory>
   </Content>
