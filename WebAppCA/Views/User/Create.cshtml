@@ -1,0 +1,272 @@
+﻿@model WebAppCA.Models.UserInfoModel
+@{
+    ViewData["Title"] = "Ajouter un utilisateur - TimeTrack";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-plus"></i> Ajouter un utilisateur</h2>
+        <div>
+            <a asp-controller="User" asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour à la liste
+            </a>
+        </div>
+    </div>
+
+    <form asp-controller="User" asp-action="Create" method="post">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3" role="alert"></div>
+
+        <!-- Section Informations Utilisateur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Informations Utilisateur</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="text-center mb-3">
+                            <div class="user-photo-container bg-light rounded mb-2" style="width: 150px; height: 150px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-person-circle" style="font-size: 5rem; color: #ccc;"></i>
+                            </div>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddPhoto">
+                                <i class="bi bi-plus"></i> Ajouter photo
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="mb-3">
+                            <label asp-for="FirstName" class="fw-bold form-label">• Prénom</label>
+                            <input asp-for="FirstName" class="form-control" />
+                            <span asp-validation-for="FirstName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• ID</label>
+                            <input asp-for="UserID" class="form-control" placeholder="2" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Groupe</label>
+                            <select class="form-select">
+                                <option selected>Tous les Utilisateurs</option>
+                                <option>Administrateurs</option>
+                                <option>Managers</option>
+                                <option>Employés</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Période</label>
+                            <div class="d-flex align-items-center">
+                                <input type="date" class="form-control" value="2001-01-01" />
+                                <input type="time" class="form-control mx-2" value="00:00" />
+                                <span class="mx-2">~</span>
+                                <input type="date" class="form-control" value="2037-12-31" />
+                                <input type="time" class="form-control ms-2" value="23:59" />
+                                <button type="button" class="btn btn-outline-secondary ms-2">
+                                    <i class="bi bi-calendar"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <div class="mb-3">
+                            <label asp-for="LastName" class="fw-bold form-label">• Nom</label>
+                            <input asp-for="LastName" class="form-control" />
+                            <span asp-validation-for="LastName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Department" class="fw-bold form-label">• Département</label>
+                            <input asp-for="Department" class="form-control" />
+                            <span asp-validation-for="Department" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Position" class="fw-bold form-label">• Titre</label>
+                            <input asp-for="Position" class="form-control" />
+                            <span asp-validation-for="Position" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Phone" class="fw-bold form-label">• Téléphone</label>
+                            <input asp-for="Phone" class="form-control" />
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Status" class="fw-bold form-label">• Statut</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="statusSwitch" checked>
+                                <label class="form-check-label" for="statusSwitch">Activé</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Permission -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Permission</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Groupe d'Accès</label>
+                            <select class="form-select">
+                                <option selected>Sélectionner le groupe d'accès</option>
+                                <option>Accès total</option>
+                                <option>Accès limité</option>
+                                <option>Visiteur</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Opérateur BioStar</label>
+                            <select class="form-select">
+                                <option selected>Jamais</option>
+                                <option>Toujours</option>
+                                <option>Planifié</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Adresse IP de l'utilisateur</label>
+                            <input type="text" class="form-control" placeholder="192.168.1.1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Cartes -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Cartes</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="form-check me-2">
+                                    <input class="form-check-input" type="checkbox" id="pinCheck">
+                                </div>
+                                <label class="fw-bold form-label mb-0">• PIN</label>
+                            </div>
+                            <input type="password" class="form-control mt-2" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Mode d'authentification</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="authModeSwitch" checked>
+                                <label class="form-check-label" for="authModeSwitch">Utiliser le mode par défaut de l'équipement</label>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Cartes</label>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-fingerprint"></i> + Empreinte digitale
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-emoji-smile"></i> + Visage
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-camera"></i> + Visual Face
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-credit-card"></i> + Carte
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary">
+                                    <i class="bi bi-qr-code"></i> + QR/Barcode
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="fw-bold form-label">• Niveau de sécurité 1:1</label>
+                            <div class="d-flex align-items-center">
+                                <input type="range" class="form-range w-75" min="0" max="10" step="1" value="5" id="securityLevel">
+                                <span class="ms-2">Utiliser le mode par défaut de l'équipement</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <button type="button" class="btn btn-secondary">Annuler</button>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser les tooltips Bootstrap
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+
+            // Mise à jour du label du switch de statut
+            const statusSwitch = document.getElementById('statusSwitch');
+            if (statusSwitch) {
+                statusSwitch.addEventListener('change', function() {
+                    const label = this.nextElementSibling;
+                    label.textContent = this.checked ? 'Activé' : 'Désactivé';
+                });
+            }
+
+            // Pour gérer l'ajout de photo (simulation)
+            const btnAddPhoto = document.getElementById('btnAddPhoto');
+            if (btnAddPhoto) {
+                btnAddPhoto.addEventListener('click', function() {
+                    alert('Fonctionnalité d\'ajout de photo à implémenter');
+                });
+            }
+        });
+    </script>
+}
+
+@section Styles {
+    <style>
+        .card-header {
+            background-color: #f8f9fa;
+            font-weight: 500;
+        }
+
+        .form-label.fw-bold {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Style pour les boutons d'ajout de carte/biométrie */
+        .btn-outline-secondary {
+            border-color: #ced4da;
+        }
+
+        /* Amélioration du style pour le curseur de niveau de sécurité */
+        .form-range::-webkit-slider-thumb {
+            background: #0d6efd;
+        }
+
+        .form-range::-moz-range-thumb {
+            background: #0d6efd;
+        }
+
+        .form-range::-ms-thumb {
+            background: #0d6efd;
+        }
+    </style>
+}

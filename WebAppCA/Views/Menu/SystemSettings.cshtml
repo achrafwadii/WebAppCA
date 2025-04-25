@@ -1,0 +1,201 @@
+﻿@model SystemSettingsViewModel
+@{
+    ViewData["Title"] = "Paramètres Système - TimeTrack";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-gear"></i> Paramètres Système</h2>
+        <a asp-controller="Menu" asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <form asp-action="SystemSettings" method="post">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success">
+                @TempData["SuccessMessage"]
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger">
+                @TempData["ErrorMessage"]
+            </div>
+        }
+
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Paramètres Généraux</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label asp-for="DeviceName" class="form-label">Nom de l'Appareil</label>
+                            <input asp-for="DeviceName" class="form-control" />
+                            <span asp-validation-for="DeviceName" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="TimeZone" class="form-label">Fuseau Horaire</label>
+                            <select asp-for="TimeZone" class="form-select">
+                                <option value="Europe/Paris">Europe/Paris (CET/CEST)</option>
+                                <option value="UTC">UTC</option>
+                                <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                <option value="Asia/Tokyo">Asia/Tokyo (JST)</option>
+                            </select>
+                            <span asp-validation-for="TimeZone" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="Language" class="form-label">Langue</label>
+                            <select asp-for="Language" class="form-select">
+                                <option value="fr">Français</option>
+                                <option value="en">English</option>
+                                <option value="es">Español</option>
+                                <option value="de">Deutsch</option>
+                            </select>
+                            <span asp-validation-for="Language" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="AutoLockTimeout" class="form-label">Délai de Verrouillage Automatique (secondes)</label>
+                            <input asp-for="AutoLockTimeout" type="number" class="form-control" min="30" max="3600" />
+                            <span asp-validation-for="AutoLockTimeout" class="text-danger"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Paramètres Réseau</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-check mb-3">
+                            <input asp-for="NetworkSettings.UseDhcp" class="form-check-input" id="useDhcp" />
+                            <label asp-for="NetworkSettings.UseDhcp" class="form-check-label">Utiliser DHCP</label>
+                        </div>
+
+                        <div id="static-ip-settings">
+                            <div class="mb-3">
+                                <label asp-for="NetworkSettings.IpAddress" class="form-label">Adresse IP</label>
+                                <input asp-for="NetworkSettings.IpAddress" class="form-control" />
+                                <span asp-validation-for="NetworkSettings.IpAddress" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="NetworkSettings.SubnetMask" class="form-label">Masque de Sous-réseau</label>
+                                <input asp-for="NetworkSettings.SubnetMask" class="form-control" />
+                                <span asp-validation-for="NetworkSettings.SubnetMask" class="text-danger"></span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label asp-for="NetworkSettings.Gateway" class="form-label">Passerelle</label>
+                                <input asp-for="NetworkSettings.Gateway" class="form-control" />
+                                <span asp-validation-for="NetworkSettings.Gateway" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end mb-4">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Enregistrer les Paramètres
+            </button>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Fonctions Avancées</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <button type="button" class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#resetModal">
+                        <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser aux Paramètres d'Usine
+                    </button>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#debugModal">
+                        <i class="bi bi-bug"></i> Mode Débogage
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Modal -->
+<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="resetModalLabel">Réinitialiser aux Paramètres d'Usine</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Attention: Cette action est irréversible!
+                </div>
+                <p>Toutes les configurations personnalisées seront perdues. Êtes-vous sûr de vouloir continuer?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-warning">Confirmer la Réinitialisation</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Debug Modal -->
+<div class="modal fade" id="debugModal" tabindex="-1" aria-labelledby="debugModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="debugModalLabel">Mode Débogage</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Attention: Mode réservé aux techniciens!
+                </div>
+                <div class="mb-3">
+                    <label for="debugPassword" class="form-label">Mot de Passe Technicien</label>
+                    <input type="password" class="form-control" id="debugPassword">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-danger">Activer le Mode Débogage</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Toggle static IP settings based on DHCP checkbox
+            function toggleStaticIpSettings() {
+                if ($('#useDhcp').is(':checked')) {
+                    $('#static-ip-settings').slideUp();
+                } else {
+                    $('#static-ip-settings').slideDown();
+                }
+            }
+
+            // Initial state
+            toggleStaticIpSettings();
+
+            // Listen for changes
+            $('#useDhcp').change(toggleStaticIpSettings);
+        });
+    </script>
+}

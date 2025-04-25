@@ -10,13 +10,13 @@ namespace WebAppCA.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class DeviceController1 : ControllerBase
+    public class DeviceController : ControllerBase
     {
-        private readonly ILogger<DeviceController1> _logger;
+        private readonly ILogger<DeviceController> _logger;
         private readonly SupremaSDKService _sdkService;
 
-        public DeviceController1(
-            ILogger<DeviceController1> logger,
+        public DeviceController(
+            ILogger<DeviceController> logger,
             SupremaSDKService sdkService)
         {
             _logger = logger;

@@ -1,0 +1,288 @@
+﻿@model WebAppCA.Models.UserInfoModel
+@{
+    ViewData["Title"] = $"Détails de l'utilisateur - {Model.FullName}";
+}
+
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person"></i> Détails de l'utilisateur</h2>
+        <div>
+            <a asp-controller="User" asp-action="Index" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Retour à la liste
+            </a>
+            <a asp-controller="User" asp-action="Edit" asp-route-id="@Model.UserID" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Modifier
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-badge"></i> Informations personnelles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <div class="avatar-placeholder rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 100px; height: 100px;">
+                            <i class="bi bi-person" style="font-size: 3rem; color: #1976d2;"></i>
+                        </div>
+                        <h4>@Model.FullName</h4>
+                        <span class="badge @(Model.Status == "Actif" ? "bg-success" : Model.Status == "Inactif" ? "bg-secondary" : "bg-danger")">
+                            @Model.Status
+                        </span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Nom d'utilisateur</label>
+                        <p class="form-control-plaintext">@Model.Username</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Email</label>
+                        <p class="form-control-plaintext">@Model.Email</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Téléphone</label>
+                        <p class="form-control-plaintext">@Model.Phone</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Numéro de badge</label>
+                        <p class="form-control-plaintext">@Model.BadgeNumber</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-building"></i> Informations professionnelles</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Département</label>
+                        <p class="form-control-plaintext">@Model.Department</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Position</label>
+                        <p class="form-control-plaintext">@Model.Position</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Type d'utilisateur</label>
+                        <p class="form-control-plaintext">
+                            <span class="badge @(Model.UserType == "Admin" ? "bg-danger" : Model.UserType == "Manager" ? "bg-warning text-dark" : "bg-primary")">
+                                @Model.UserType
+                            </span>
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Date de création</label>
+                        <p class="form-control-plaintext">@Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Dernière connexion</label>
+                        <p class="form-control-plaintext">
+                            @(Model.LastLogin.HasValue ? Model.LastLogin.Value.ToString("dd/MM/yyyy HH:mm") : "Jamais connecté")
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-shield-lock"></i> Droits d'accès</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <label class="form-label text-muted">Groupes d'accès</label>
+                        @if (Model.AccessGroups != null && Model.AccessGroups.Any())
+                        {
+                            <div>
+                                @foreach (var group in Model.AccessGroups)
+                                {
+                                    <span class="badge bg-info me-1 mb-1">@group</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext text-muted">Aucun groupe assigné</p>
+                        }
+                    </div>
+
+                    <div>
+                        <label class="form-label text-muted">Portes accessibles</label>
+                        @if (Model.AccessibleDoors != null && Model.AccessibleDoors.Any())
+                        {
+                            <div>
+                                @foreach (var doorId in Model.AccessibleDoors)
+                                {
+                                    <span class="badge bg-success me-1 mb-1">Porte #@doorId</span>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="form-control-plaintext text-muted">Aucune porte accessible</p>
+                        }
+                    </div>
+
+                    <hr />
+
+                    <button class="btn btn-outline-primary w-100" data-bs-toggle="modal" data-bs-target="#accessModal">
+                        <i class="bi bi-key"></i> Modifier les droits d'accès
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Historique des accès</h5>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Aucun historique d'accès disponible pour cet utilisateur
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de gestion des droits d'accès -->
+<div class="modal fade" id="accessModal" tabindex="-1" aria-labelledby="accessModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="accessModalLabel">
+                    <i class="bi bi-key"></i> Gestion des droits d'accès - @Model.FullName
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <form asp-controller="User" asp-action="AssignAccess" method="post">
+                <input type="hidden" name="userId" value="@Model.UserID" />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-people"></i> Groupes d'accès</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="Administrateurs" id="group1" 
+                                       @(Model.AccessGroups != null && Model.AccessGroups.Contains("Administrateurs") ? "checked" : "")>
+                                <label class="form-check-label" for="group1">
+                                    Administrateurs
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="Gestionnaires" id="group2" 
+                                       @(Model.AccessGroups != null && Model.AccessGroups.Contains("Gestionnaires") ? "checked" : "")>
+                                <label class="form-check-label" for="group2">
+                                    Gestionnaires
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="RH" id="group3" 
+                                       @(Model.AccessGroups != null && Model.AccessGroups.Contains("RH") ? "checked" : "")>
+                                <label class="form-check-label" for="group3">
+                                    RH
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="Commerciaux" id="group4" 
+                                       @(Model.AccessGroups != null && Model.AccessGroups.Contains("Commerciaux") ? "checked" : "")>
+                                <label class="form-check-label" for="group4">
+                                    Commerciaux
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" value="Techniciens" id="group5"
+                                @(Model.AccessGroups != null && Model.AccessGroups.Contains("Techniciens") ? "checked" : "")>
+                                <label class="form-check-label" for="group5">
+                                    Techniciens
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="bi bi-door-open"></i> Portes accessibles</h6>
+                            <div class="row">
+                                <div class="col-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="1" id="door1"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(1) ? "checked" : "")>
+                                        <label class="form-check-label" for="door1">
+                                            Porte #1 (Entrée principale)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="2" id="door2"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(2) ? "checked" : "")>
+                                        <label class="form-check-label" for="door2">
+                                            Porte #2 (Bureaux)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="3" id="door3"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(3) ? "checked" : "")>
+                                        <label class="form-check-label" for="door3">
+                                            Porte #3 (Salle serveurs)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="4" id="door4"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(4) ? "checked" : "")>
+                                        <label class="form-check-label" for="door4">
+                                            Porte #4 (Entrepôt)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="5" id="door5"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(5) ? "checked" : "")>
+                                        <label class="form-check-label" for="door5">
+                                            Porte #5 (Parking)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" name="doorIds" value="6" id="door6"
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(6) ? "checked" : "")>
+                                        <label class="form-check-label" for="door6">
+                                            Porte #6 (Salle de réunion)
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer les modifications
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser les tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+}

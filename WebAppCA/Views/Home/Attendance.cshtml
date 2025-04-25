@@ -1,4 +1,5 @@
-﻿@{
+﻿@model IEnumerable<WebAppCA.Models.Pointage>
+@{
     ViewData["Title"] = "Gestion de Présence - TimeTrack";
 }
 
@@ -6,39 +7,49 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-calendar-check"></i> Gestion de Présence</h2>
         <div>
-            <button class="btn btn-primary me-2">
+            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#modalAjouterPointage">
                 <i class="bi bi-plus-circle"></i> Ajouter un pointage
             </button>
-            <button class="btn btn-outline-secondary">
+            <a href="@Url.Action("Export")" class="btn btn-outline-secondary">
                 <i class="bi bi-download"></i> Exporter
-            </button>
+            </a>
         </div>
     </div>
-
+    
     <div class="card shadow-sm">
         <div class="card-body">
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <label class="form-label">Date de début</label>
-                    <input type="date" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Date de fin</label>
-                    <input type="date" class="form-control">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Utilisateur</label>
-                    <select class="form-select">
-                        <option>Tous les utilisateurs</option>
+            @using (Html.BeginForm("Index", "Presence", FormMethod.Get, new { id = "formFiltre" }))
+            {
+                <div class="row mb-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Date de début</label>
+                        <input type="date" name="DateDebut" class="form-control" value="@(Context.Request.Query["DateDebut"])">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Date de fin</label>
+                        <input type="date" name="DateFin" class="form-control" value="@(Context.Request.Query["DateFin"])">
+                    </div>
+                    <select name="Utilisateur" class="form-select">
+                        <option value="">Tous les utilisateurs</option>
+                        @if (ViewBag.Utilisateurs != null)
+                        {
+                            @foreach (var utilisateur in ViewBag.Utilisateurs)
+                            {
+                                <option value="@utilisateur.Value"
+                                        selected="@(Context.Request.Query["UtilisateurId"] == utilisateur.Value)">
+                                    @utilisateur.Text
+                                </option>
+                            }
+                        }
                     </select>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> Filtrer
+                        </button>
+                    </div>
                 </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filtrer
-                    </button>
-                </div>
-            </div>
-
+            }
+            
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead class="table-light">
@@ -49,22 +60,210 @@
                             <th><i class="bi bi-clock-history"></i> Heure de sortie</th>
                             <th><i class="bi bi-stopwatch"></i> Durée</th>
                             <th><i class="bi bi-door-open"></i> Point d'accès</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
-                            <td colspan="6" class="text-center py-4">
-                                <div class="alert alert-info">
-                                    <i class="bi bi-info-circle"></i> Aucun pointage trouvé
-                                </div>
-                            </td>
-                        </tr>
+                        @if (Model != null && Model.Any())
+                        {
+                            foreach (var pointage in Model)
+                            {
+                                <tr>
+                                    <td>@pointage.Utilisateur.NomComplet</td>
+                                    <td>@pointage.Date.ToString("dd/MM/yyyy")</td>
+                                    <td>@pointage.HeureEntree.ToString("HH:mm")</td>
+                                    <td>@(pointage.HeureSortie?.ToString("HH:mm") ?? "-")</td>
+                                    <td>@(pointage.Duree.HasValue ? $"{pointage.Duree.Value.Hours:D2}h{pointage.Duree.Value.Minutes:D2}" : "-")</td>
+                                    <td>@pointage.PointAcces.Nom</td>
+                                    <td class="text-end">
+                                        <div class="btn-group">
+                                            <a href="@Url.Action("Edit", new { id = pointage.Id })" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#modalSupprimerPointage" 
+                                                    data-id="@pointage.Id">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="alert alert-info mb-0">
+                                        <i class="bi bi-info-circle"></i> Aucun pointage trouvé
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal Ajouter Pointage -->
+<div class="modal fade" id="modalAjouterPointage" tabindex="-1" aria-labelledby="modalAjouterPointageLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAjouterPointageLabel">Ajouter un pointage</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <form id="formAjouterPointage">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="utilisateurId" class="form-label">Utilisateur</label>
+                        <select name="Utilisateur" class="form-select">
+                            <option value="">Tous les utilisateurs</option>
+                            @if (ViewBag.Utilisateurs != null)
+                            {
+                                foreach (var utilisateur in ViewBag.Utilisateurs)
+                                {
+                                    <option value="@utilisateur.Value"
+                                            selected="@(Context.Request.Query["UtilisateurId"] == utilisateur.Value)">
+                                        @utilisateur.Text
+                                    </option>
+                                }
+                            }
+                            else
+                            {
+                                <option disabled>Aucun utilisateur disponible</option>
+                            }
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date</label>
+                        <input type="date" class="form-control" id="date" name="Date" required value="@DateTime.Now.ToString("yyyy-MM-dd")">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label for="heureEntree" class="form-label">Heure d'entrée</label>
+                            <input type="time" class="form-control" id="heureEntree" name="HeureEntree" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col">
+                            <label for="heureSortie" class="form-label">Heure de sortie</label>
+                            <input type="time" class="form-control" id="heureSortie" name="HeureSortie">
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pointAccesId" class="form-label">Point d'accès</label>
+                        <select id="pointAccesId" name="PointAccesId" class="form-select" required>
+                            <option value="">Sélectionner un point d'accès</option>
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Enregistrer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Supprimer Pointage -->
+<div class="modal fade" id="modalSupprimerPointage" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmer la suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <p>Êtes-vous sûr de vouloir supprimer ce pointage ?</p>
+                <p class="text-danger"><small>Cette action est irréversible.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form id="formSupprimerPointage" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Charger les points d'accès au chargement de la page
+            $.getJSON('@Url.Action("GetPointsAcces")', function(data) {
+                const select = $('#pointAccesId');
+                $.each(data, function(index, item) {
+                    select.append($('<option>').val(item.id).text(item.nom));
+                });
+            });
+            
+            // Initialiser l'heure d'entrée avec l'heure actuelle
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            $('#heureEntree').val(`${hours}:${minutes}`);
+            
+            // Soumission du formulaire d'ajout de pointage
+            $('#formAjouterPointage').on('submit', function(e) {
+                e.preventDefault();
+                
+                // Réinitialiser les erreurs
+                $(this).find('.is-invalid').removeClass('is-invalid');
+                
+                // Récupérer les données du formulaire
+                const formData = $(this).serialize();
+                
+                // Envoyer la requête AJAX
+                $.ajax({
+                    url: '@Url.Action("Create")',
+                    type: 'POST',
+                    data: formData,
+                    success: function() {
+                        // Fermer le modal et rafraîchir la page
+                        $('#modalAjouterPointage').modal('hide');
+                        location.reload();
+                    },
+                    error: function(xhr) {
+                        // Afficher les erreurs de validation
+                        if (xhr.status === 400) {
+                            const errors = xhr.responseJSON;
+                            for (const key in errors) {
+                                if (errors.hasOwnProperty(key)) {
+                                    const fieldName = key.charAt(0).toLowerCase() + key.slice(1);
+                                    const field = $('#' + fieldName);
+                                    field.addClass('is-invalid');
+                                    field.siblings('.invalid-feedback').text(errors[key][0]);
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Configuration du modal de suppression
+            $('#modalSupprimerPointage').on('show.bs.modal', function(event) {
+                const button = $(event.relatedTarget);
+                const id = button.data('id');
+                const form = $('#formSupprimerPointage');
+                form.attr('action', '@Url.Action("Delete")/' + id);
+            });
+        });
+    </script>
+}
 
 @section Styles {
     <style>
