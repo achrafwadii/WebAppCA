@@ -6,7 +6,7 @@ namespace WebAppCA.Models
     {
         public uint DeviceId { get; set; }
         public string IpAddress { get; set; }
-        public ushort Port { get; set; }
+        public int Port { get; set; }
         public string ModelName { get; set; }
         public ushort FirmwareVersion { get; set; }
     }

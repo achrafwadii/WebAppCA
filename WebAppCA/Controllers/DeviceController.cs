@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -8,199 +7,301 @@ using WebAppCA.Services;
 
 namespace WebAppCA.Controllers
 {
-    [ApiController]
-    [Route("api/[controller]")]
-    public class DeviceController : ControllerBase
+    public class DeviceController : Controller
     {
         private readonly ILogger<DeviceController> _logger;
         private readonly SupremaSDKService _sdkService;
+        private readonly DeviceControlService _deviceControlService;
 
         public DeviceController(
             ILogger<DeviceController> logger,
-            SupremaSDKService sdkService)
+            SupremaSDKService sdkService,
+            DeviceControlService deviceControlService)
         {
             _logger = logger;
             _sdkService = sdkService;
+            _deviceControlService = deviceControlService;
         }
 
-        [HttpGet]
-        public IActionResult GetConnectedDevices()
+        // GET: /Device
+        public IActionResult Index()
+        {
+            var devices = _sdkService.GetConnectedDevicesAsModels();
+            return View(devices);
+        }
+        [HttpPost("scan")]
+        public async Task<IActionResult> ScanDevice(string ip, int port = 51211)
         {
             try
             {
-                var devices = _sdkService.GetConnectedDevices();
-                return Ok(devices);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting connected devices");
-                return StatusCode(500, new { Error = "Failed to get connected devices" });
-            }
-        }
-
-        [HttpPost("connect")]
-        public async Task<IActionResult> ConnectDevice([FromBody] ConnectDeviceRequest request)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(request.IpAddress))
+                if (string.IsNullOrEmpty(ip))
                 {
                     return BadRequest(new { Error = "IP address is required" });
                 }
 
-                var device = await _sdkService.ConnectDeviceAsync(request.IpAddress);
+                var device = await _sdkService.ConnectDeviceAsync(ip, (ushort)port);
                 if (device == null)
                 {
                     return BadRequest(new { Error = "Failed to connect to device" });
                 }
 
-                return Ok(device);
+                return RedirectToAction("Index", "Home");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error connecting to device {IP}", request.IpAddress);
-                return StatusCode(500, new { Error = "Failed to connect to device" });
+                _logger.LogError(ex, "Error scanning device at {IP}:{Port}", ip, port);
+                return StatusCode(500, new { Error = "Failed to scan device" });
             }
         }
+        // POST: /Device/ScanDevice
+        [HttpPost]
+        public async Task<IActionResult> ScanDevice(string ip, ushort port = 51211)
+        {
+            _logger.LogInformation("Scanning device at IP: {IP}, Port: {Port}", ip, port);
 
-        [HttpPost("{deviceId}/disconnect")]
-        public async Task<IActionResult> DisconnectDevice(uint deviceId)
+            try
+            {
+                // Vérifier que les paramètres sont valides
+                if (string.IsNullOrEmpty(ip))
+                {
+                    TempData["Error"] = "L'adresse IP est requise";
+                    return RedirectToAction("Index");
+                }
+
+                // S'assurer que le SDK est initialisé
+                if (!_sdkService.Initialize())
+                {
+                    TempData["Error"] = "Impossible d'initialiser le SDK Suprema";
+                    return RedirectToAction("Index");
+                }
+
+                var device = await _sdkService.ConnectDeviceAsync(ip, port);
+                if (device == null)
+                {
+                    TempData["Error"] = "Impossible de se connecter à l'appareil";
+                }
+                else
+                {
+                    TempData["Success"] = $"L'appareil {device.DeviceName} a été trouvé et connecté avec succès";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la connexion à l'appareil");
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        // POST: /Device/Connect
+        [HttpPost]
+        public async Task<IActionResult> Connect(uint deviceId)
+        {
+            try
+            {
+                var result = await _sdkService.ConnectDeviceAsync(deviceId);
+                if (!result)
+                {
+                    TempData["Error"] = "Impossible de se connecter à l'appareil";
+                }
+                else
+                {
+                    TempData["Success"] = "Appareil connecté avec succès";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la connexion à l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        // POST: /Device/Disconnect
+        [HttpPost]
+        public async Task<IActionResult> Disconnect(uint deviceId)
         {
             try
             {
                 var result = await _sdkService.DisconnectDeviceAsync(deviceId);
                 if (!result)
                 {
-                    return BadRequest(new { Error = "Failed to disconnect device" });
+                    TempData["Error"] = "Échec de la déconnexion de l'appareil";
                 }
-
-                return Ok(new { Success = true });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error disconnecting device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to disconnect device" });
-            }
-        }
-
-        [HttpGet("{deviceId}/time")]
-        public async Task<IActionResult> GetDeviceTime(uint deviceId)
-        {
-            try
-            {
-                var time = await _sdkService.GetDeviceTimeAsync(deviceId);
-                if (time == null)
+                else
                 {
-                    return BadRequest(new { Error = "Failed to get device time" });
+                    TempData["Success"] = "Appareil déconnecté avec succès";
                 }
-
-                return Ok(new { Time = time });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting device time for device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to get device time" });
+                _logger.LogError(ex, "Erreur lors de la déconnexion de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
             }
+
+            return RedirectToAction("Index");
         }
 
-        [HttpPost("{deviceId}/time")]
-        public async Task<IActionResult> SetDeviceTime(uint deviceId, [FromBody] SetTimeRequest request)
+        // POST: /Device/ReadLogs
+        [HttpPost]
+        public async Task<IActionResult> ReadLogs(uint deviceId)
         {
-            try
-            {
-                var result = await _sdkService.SetDeviceTimeAsync(deviceId, request?.DateTime);
-                if (!result)
-                {
-                    return BadRequest(new { Error = "Failed to set device time" });
-                }
-
-                return Ok(new { Success = true });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error setting device time for device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to set device time" });
-            }
+            // Implémentez la logique pour lire les logs
+            // Pour le moment, redirigez simplement
+            TempData["Info"] = "Fonctionnalité de lecture des logs non implémentée";
+            return RedirectToAction("Index");
         }
 
-        [HttpPost("{deviceId}/reboot")]
-        public async Task<IActionResult> RebootDevice(uint deviceId)
+        // POST: /Device/Reboot
+        [HttpPost]
+        public async Task<IActionResult> Reboot(uint deviceId)
         {
             try
             {
                 var result = await _sdkService.RebootDeviceAsync(deviceId);
                 if (!result)
                 {
-                    return BadRequest(new { Error = "Failed to reboot device" });
+                    TempData["Error"] = "Échec du redémarrage de l'appareil";
                 }
-
-                return Ok(new { Success = true });
+                else
+                {
+                    TempData["Success"] = "Commande de redémarrage envoyée avec succès";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error rebooting device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to reboot device" });
+                _logger.LogError(ex, "Erreur lors du redémarrage de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
             }
+
+            return RedirectToAction("Index");
         }
 
-        [HttpPost("{deviceId}/factoryReset")]
-        public async Task<IActionResult> FactoryReset(uint deviceId)
+        // POST: /Device/Reset
+        [HttpPost]
+        public async Task<IActionResult> Reset(uint deviceId)
         {
             try
             {
                 var result = await _sdkService.FactoryResetAsync(deviceId);
                 if (!result)
                 {
-                    return BadRequest(new { Error = "Failed to factory reset device" });
+                    TempData["Error"] = "Échec de la réinitialisation de l'appareil";
                 }
-
-                return Ok(new { Success = true });
+                else
+                {
+                    TempData["Success"] = "Appareil réinitialisé avec succès";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error factory resetting device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to factory reset device" });
+                _logger.LogError(ex, "Erreur lors de la réinitialisation de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
             }
+
+            return RedirectToAction("Index");
         }
 
-        [HttpPost("{deviceId}/lock")]
-        public async Task<IActionResult> LockDevice(uint deviceId)
+        // POST: /Device/Lock
+        [HttpPost]
+        public async Task<IActionResult> Lock(uint deviceId)
         {
             try
             {
                 var result = await _sdkService.LockDeviceAsync(deviceId);
                 if (!result)
                 {
-                    return BadRequest(new { Error = "Failed to lock device" });
+                    TempData["Error"] = "Échec du verrouillage de l'appareil";
                 }
-
-                return Ok(new { Success = true });
+                else
+                {
+                    TempData["Success"] = "Appareil verrouillé avec succès";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error locking device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to lock device" });
+                _logger.LogError(ex, "Erreur lors du verrouillage de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
             }
+
+            return RedirectToAction("Index");
         }
 
-        [HttpPost("{deviceId}/unlock")]
-        public async Task<IActionResult> UnlockDevice(uint deviceId)
+        // POST: /Device/Unlock
+        [HttpPost]
+        public async Task<IActionResult> Unlock(uint deviceId)
         {
             try
             {
                 var result = await _sdkService.UnlockDeviceAsync(deviceId);
                 if (!result)
                 {
-                    return BadRequest(new { Error = "Failed to unlock device" });
+                    TempData["Error"] = "Échec du déverrouillage de l'appareil";
                 }
-
-                return Ok(new { Success = true });
+                else
+                {
+                    TempData["Success"] = "Appareil déverrouillé avec succès";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error unlocking device {DeviceId}", deviceId);
-                return StatusCode(500, new { Error = "Failed to unlock device" });
+                _logger.LogError(ex, "Erreur lors du déverrouillage de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
             }
+
+            return RedirectToAction("Index");
         }
+
+        // GET: /Device/GetTime
+        [HttpGet]
+        public async Task<IActionResult> GetTime(uint deviceId)
+        {
+            try
+            {
+                var time = await _sdkService.GetDeviceTimeAsync(deviceId);
+                if (time == null)
+                {
+                    TempData["Error"] = "Impossible d'obtenir l'heure de l'appareil";
+                }
+                else
+                {
+                    TempData["Success"] = $"Heure de l'appareil: {time.Value.ToLocalTime()}";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la récupération de l'heure de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        // POST: /Device/SetTime
+        /*[HttpPost]
+        public async Task<IActionResult> SetTime(uint deviceId, DateTime? dateTime = null)
+        {
+            try
+            {
+                var result = await _sdkService.SetDeviceTimeAsync(deviceId, dateTime);
+                if (!result)
+                {
+                    TempData["Error"] = "Impossible de définir l'heure de l'appareil";
+                }
+                else
+                {
+                    TempData["Success"] = "Heure de l'appareil définie avec succès";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la définition de l'heure de l'appareil {DeviceId}", deviceId);
+                TempData["Error"] = $"Une erreur s'est produite: {ex.Message}";
+            }
+
+            return RedirectToAction("Index");
+        }*/
     }
 }

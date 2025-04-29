@@ -1,19 +1,39 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using WebAppCA.SDK;
+using static WebAppCA.Services.SupremaSDKService;
 
 namespace WebAppCA.Services
 {
+    // Définir l'énumération DeviceStatus
+    public enum DeviceStatus
+    {
+        Active,
+        Inactive,
+        Unknown
+    }
     public class DeviceControlService
     {
         private readonly ILogger<DeviceControlService> _logger;
         private readonly SupremaSDKService _sdkService;
+        private readonly IConfiguration _configuration;
 
-        public DeviceControlService(ILogger<DeviceControlService> logger, SupremaSDKService sdkService)
+        public DeviceControlService(
+                    ILogger<DeviceControlService> logger,
+                    SupremaSDKService sdkService,
+                    IConfiguration configuration)
         {
             _logger = logger;
             _sdkService = sdkService;
+            _configuration = configuration;
+        }
+        public enum DeviceStatus
+        {
+            Active,
+            Inactive,
+            Unknown
         }
 
         // Obtenir l'heure de l'appareil
@@ -41,6 +61,46 @@ namespace WebAppCA.Services
             _logger.LogInformation("Device time: {DeviceTime}", deviceTime);
 
             return new DeviceTimeResult { Success = true, Time = deviceTime };
+        }
+       
+        private string GetLocalIPAddress()
+        {
+            var host = System.Net.Dns.GetHostEntry(System.Net.Dns.GetHostName());
+            foreach (var ip in host.AddressList)
+            {
+                if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    return ip.ToString();
+                }
+            }
+            throw new Exception("No network adapters with an IPv4 address in the system!");
+        }
+        public List<DeviceInfo> ScanNetworkDevices()
+        {
+            var devices = new List<DeviceInfo>();
+
+            try
+            {
+                // Logique de scan réseau
+                var localIpAddress = GetLocalIPAddress();
+                var scanPort = _configuration.GetValue<int>("NetworkSettings:ScanPort", 51211);
+
+                // Exemple simplifié de scan réseau
+                devices.Add(new DeviceInfo
+                {
+                    IpAddress = localIpAddress,
+                    Port = (ushort)scanPort,
+                    DeviceName = System.Environment.MachineName,
+                    Status = DeviceStatus.Active
+                });
+                _logger.LogInformation($"Scanned {devices.Count} devices");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Device scan error: {ex.Message}");
+            }
+
+            return devices;
         }
 
         // Définir l'heure de l'appareil
@@ -224,5 +284,8 @@ namespace WebAppCA.Services
         public ushort Port { get; set; }
         public string ModelName { get; set; }
         public ushort FirmwareVersion { get; set; }
+        public DeviceStatus Status { get; set; }
+        public string DeviceName { get; set; }
+
     }
 }

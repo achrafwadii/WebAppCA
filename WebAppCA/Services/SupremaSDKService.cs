@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using WebAppCA.Models;
 using WebAppCA.SDK;
 
 namespace WebAppCA.Services
@@ -20,6 +18,8 @@ namespace WebAppCA.Services
             _sdkContext = IntPtr.Zero;
             _isInitialized = false;
             _connectedDevices = new Dictionary<uint, DeviceInfo>();
+
+            Initialize();
         }
 
         public class DeviceInfo
@@ -31,49 +31,48 @@ namespace WebAppCA.Services
             public ushort Type { get; set; }
             public ushort Port { get; set; }
             public bool IsConnected { get; set; }
+            public DeviceControlService.DeviceStatus Status { get; set; }
         }
 
         public bool Initialize()
         {
-            if (_isInitialized)
-                return true;
+            if (_isInitialized) return true;
 
-            int result = SupremaSDK.BS2_Initialize(out _sdkContext);
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
+            Console.WriteLine("Initializing Suprema SDK");
+
+            int result = BS2_Initialize(out _sdkContext);
+            if (result != 0)
             {
-                _logger.LogError("Failed to initialize Suprema SDK. Error: {Error}", result);
+                Console.WriteLine($"Failed to initialize SDK. Code: {result}");
                 return false;
             }
 
             _isInitialized = true;
-            _logger.LogInformation("Suprema SDK initialized successfully");
+            Console.WriteLine("SDK initialized");
             return true;
         }
 
+        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int BS2_Initialize(out IntPtr context);
+
+        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int BS2_ReleaseContext(IntPtr context);
+
         public IntPtr GetContext()
         {
-            if (!_isInitialized)
-            {
-                throw new InvalidOperationException("SDK is not initialized");
-            }
-
+            CheckInitialized();
             return _sdkContext;
         }
 
         public async Task<DeviceInfo> ConnectDeviceAsync(string ipAddress, ushort port = 51211)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return null;
 
             _logger.LogInformation("Connecting to device at {IP}:{Port}", ipAddress, port);
 
-            uint deviceId = 0;
+            uint deviceId;
             int result = SupremaSDK.BS2_ConnectDevice(_sdkContext, ipAddress, port, out deviceId);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to connect to device. Error: {Error}", result);
-                return null;
-            }
+            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS) return null;
 
             var deviceInfo = await GetDeviceInfoAsync(deviceId);
             if (deviceInfo != null)
@@ -85,42 +84,43 @@ namespace WebAppCA.Services
             return deviceInfo;
         }
 
+        public async Task<bool> ConnectDeviceAsync(uint deviceId)
+        {
+            if (!_isInitialized && !Initialize()) return false;
+
+            if (_connectedDevices.ContainsKey(deviceId) && _connectedDevices[deviceId].IsConnected) return true;
+
+            var deviceInfo = await GetDeviceInfoAsync(deviceId);
+            if (deviceInfo != null)
+            {
+                deviceInfo.IsConnected = true;
+                _connectedDevices[deviceId] = deviceInfo;
+                return true;
+            }
+
+            return false;
+        }
+
         public async Task<bool> DisconnectDeviceAsync(uint deviceId)
         {
-            CheckInitialized();
-
-            _logger.LogInformation("Disconnecting device ID: {DeviceId}", deviceId);
+            if (!_isInitialized && !Initialize()) return false;
 
             int result = SupremaSDK.BS2_DisconnectDevice(_sdkContext, deviceId);
+            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS) return false;
 
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to disconnect device. Error: {Error}", result);
-                return false;
-            }
-
-            if (_connectedDevices.ContainsKey(deviceId))
-            {
-                _connectedDevices.Remove(deviceId);
-            }
-
+            _connectedDevices.Remove(deviceId);
             return true;
         }
 
         public async Task<DeviceInfo> GetDeviceInfoAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return null;
 
             BS2SimpleDeviceInfo deviceInfo;
             BS2SimpleDeviceInfoEx deviceInfoEx;
 
             int result = SupremaSDK.BS2_GetDeviceInfoEx(_sdkContext, deviceId, out deviceInfo, out deviceInfoEx);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to get device info. Error: {Error}", result);
-                return null;
-            }
+            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS) return null;
 
             return new DeviceInfo
             {
@@ -136,100 +136,54 @@ namespace WebAppCA.Services
 
         public async Task<DateTime?> GetDeviceTimeAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return null;
 
-            uint timestamp = 0;
+            uint timestamp;
             int result = SupremaSDK.BS2_GetDeviceTime(_sdkContext, deviceId, out timestamp);
+            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS) return null;
 
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to get device time. Error: {Error}", result);
-                return null;
-            }
-
-            // Convert UNIX timestamp to DateTime
-            DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            return epoch.AddSeconds(timestamp);
+            return DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
         }
 
-        public async Task<bool> SetDeviceTimeAsync(uint deviceId, DateTime? dateTime = null)
+        /*public async Task<bool> SetDeviceTimeAsync(uint deviceId, DateTime? dateTime = null)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return false;
 
-            DateTime timeToSet = dateTime ?? DateTime.UtcNow;
-            DateTime epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            TimeSpan elapsedTime = timeToSet.ToUniversalTime() - epoch;
-            uint timestamp = (uint)elapsedTime.TotalSeconds;
-
+            uint timestamp = (uint)(dateTime ?? DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
             int result = SupremaSDK.BS2_SetDeviceTime(_sdkContext, deviceId, timestamp);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to set device time. Error: {Error}", result);
-                return false;
-            }
-
-            return true;
+            return result == (int)BS2ErrorCode.BS_SDK_SUCCESS;
         }
-
+        */
         public async Task<bool> RebootDeviceAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return false;
 
             int result = SupremaSDK.BS2_RebootDevice(_sdkContext, deviceId);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to reboot device. Error: {Error}", result);
-                return false;
-            }
-
-            return true;
+            return result == (int)BS2ErrorCode.BS_SDK_SUCCESS;
         }
 
         public async Task<bool> FactoryResetAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return false;
 
             int result = SupremaSDK.BS2_FactoryReset(_sdkContext, deviceId);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to factory reset device. Error: {Error}", result);
-                return false;
-            }
-
-            return true;
+            return result == (int)BS2ErrorCode.BS_SDK_SUCCESS;
         }
 
         public async Task<bool> LockDeviceAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return false;
 
             int result = SupremaSDK.BS2_LockDevice(_sdkContext, deviceId);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to lock device. Error: {Error}", result);
-                return false;
-            }
-
-            return true;
+            return result == (int)BS2ErrorCode.BS_SDK_SUCCESS;
         }
 
         public async Task<bool> UnlockDeviceAsync(uint deviceId)
         {
-            CheckInitialized();
+            if (!_isInitialized && !Initialize()) return false;
 
             int result = SupremaSDK.BS2_UnlockDevice(_sdkContext, deviceId);
-
-            if (result != (int)BS2ErrorCode.BS_SDK_SUCCESS)
-            {
-                _logger.LogError("Failed to unlock device. Error: {Error}", result);
-                return false;
-            }
-
-            return true;
+            return result == (int)BS2ErrorCode.BS_SDK_SUCCESS;
         }
 
         public IEnumerable<DeviceInfo> GetConnectedDevices()
@@ -237,9 +191,26 @@ namespace WebAppCA.Services
             return _connectedDevices.Values;
         }
 
+        public List<DeviceInfoModel> GetConnectedDevicesAsModels()
+        {
+            var models = new List<DeviceInfoModel>();
+            foreach (var device in _connectedDevices.Values)
+            {
+                models.Add(new DeviceInfoModel
+                {
+                    DeviceID = device.DeviceId,
+                    DeviceName = device.DeviceName,
+                    IPAddress = device.IpAddress,
+                    Port = device.Port,
+                    ConnectionStatus = device.IsConnected ? "Connecté" : "Déconnecté"
+                });
+            }
+            return models;
+        }
+
         private void CheckInitialized()
         {
-            if (!_isInitialized)
+            if (!_isInitialized && !Initialize())
             {
                 throw new InvalidOperationException("SDK is not initialized");
             }
@@ -249,23 +220,18 @@ namespace WebAppCA.Services
         {
             if (_isInitialized && _sdkContext != IntPtr.Zero)
             {
-                // Disconnect all devices
                 foreach (var deviceId in _connectedDevices.Keys)
                 {
                     SupremaSDK.BS2_DisconnectDevice(_sdkContext, deviceId);
                 }
 
-                SupremaSDK.BS2_ReleaseContext(_sdkContext);
+                BS2_ReleaseContext(_sdkContext);
                 _sdkContext = IntPtr.Zero;
                 _isInitialized = false;
                 _connectedDevices.Clear();
+
                 _logger.LogInformation("Suprema SDK released");
             }
-        }
-
-        internal async Task<bool> ConnectDeviceAsync(uint deviceId)
-        {
-            throw new NotImplementedException();
         }
     }
 }

@@ -6,11 +6,12 @@ namespace WebAppCA.SDK
     public static class SupremaSDK
     {
         // Chemin vers la DLL - ajustez selon votre environnement
-        private const string DllPath = "B2_SDK_V2.dll";
+        private const string DllPath = "BS_SDK_V2.dll";
 
         // Initialisation
-        [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_Initialize(out IntPtr context);
+        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+        private static extern int BS2_Initialize(ref IntPtr context);
+
 
         [DllImport(DllPath, CallingConvention = CallingConvention.Cdecl)]
         public static extern int BS2_ReleaseContext(IntPtr context);
