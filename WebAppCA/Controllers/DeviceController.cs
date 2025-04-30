@@ -1,56 +1,57 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using WebAppCA.Models;
-using WebAppCA.Services;
-using System.Collections.Generic;
-using System.IO;
 
 namespace WebAppCA.Controllers
 {
     public class DeviceController : Controller
     {
-        private const string CaCertPath = "certs/gateway_ca.pem";
-        private const string GatewayAddress = "127.0.0.1";
-        private const int GatewayPort = 50051;
-
-        [HttpGet]
-        public IActionResult Index()
-        {
-            var gateway = new GatewayClient();
-            gateway.Connect(CaCertPath, GatewayAddress, GatewayPort);
-
-            var connectSvc = new ConnectService(gateway.Channel);
-            var grpcDevices = connectSvc.GetDevices();
-
-            var model = new List<DeviceInfoModel>();
-
-            foreach (var d in grpcDevices)
-            {
-                model.Add(new DeviceInfoModel
-                {
-                    DeviceName = d.DeviceID.ToString(),
-                    DeviceID = d.DeviceID,
-                    IPAddress = d.IPAddr,
-                    ConnectionStatus = "Non connecté" // actualiser selon besoin
-                });
-            }
-
-            gateway.Close();
-            return View("Index", model);
-        }
-
         [HttpPost]
         public IActionResult Connect(string ip, int port)
         {
-            var gateway = new GatewayClient();
-            gateway.Connect(CaCertPath, GatewayAddress, GatewayPort);
+            // Exemple de traitement (tu peux adapter)
+            if (string.IsNullOrEmpty(ip) || port == 0)
+                return BadRequest("IP ou port invalide");
 
-            var connectSvc = new ConnectService(gateway.Channel);
-            var deviceId = connectSvc.ConnectToDevice(ip, port);
-
-            TempData["Message"] = $"Équipement connecté avec succès (ID: {deviceId})";
-            gateway.Close();
-
-            return RedirectToAction("Index");
+            // Simule un device connecté
+            TempData["Message"] = $"Équipement connecté : {ip}:{port}";
+            return RedirectToAction("Index", "Home");
         }
+
+        [HttpPost]
+        public IActionResult Connect(int deviceID)
+        {
+            // Connexion via ID depuis le tableau
+            TempData["Message"] = $"Connexion à l'appareil ID: {deviceID}";
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpPost]
+        public IActionResult ReadLogs(int deviceID)
+        {
+            TempData["Message"] = $"Lecture des logs pour l'appareil ID: {deviceID}";
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpPost]
+        public IActionResult Reboot(int deviceID)
+        {
+            TempData["Message"] = $"Redémarrage de l'appareil ID: {deviceID}";
+            return RedirectToAction("Index", "Home");
+        }
+
+        [HttpPost]
+        public IActionResult Reset(int deviceID)
+        {
+            TempData["Message"] = $"Réinitialisation de l'appareil ID: {deviceID}";
+            return RedirectToAction("Index", "Home");
+        }
+        // Pour le formulaire avec IP et port (ajout d'un device)
+        [HttpPost]
+        public IActionResult ConnectByIP(string ip, int port)
+        {
+            TempData["Message"] = $"Équipement connecté : {ip}:{port}";
+            return RedirectToAction("Index", "Home");
+        }
+
     }
 }

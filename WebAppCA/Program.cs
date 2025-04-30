@@ -33,8 +33,7 @@ if (!path.Contains(sdkDir))
 // Services
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
-builder.Services.AddSingleton<SupremaSDKService>();
-builder.Services.AddSingleton<DeviceControlService>();
+
 builder.Services.AddCors(o =>
     o.AddPolicy("AllowLocalhost", p =>
         p.WithOrigins("https://localhost:7211")
@@ -48,10 +47,6 @@ builder.Services.AddSession(o =>
 });
 
 var app = builder.Build();
-
-// Initialise le SDK avant tout appel
-var sdkService = app.Services.GetRequiredService<SupremaSDKService>();
-sdkService.Initialize();
 
 app.UseCors("AllowLocalhost");
 app.UseHttpsRedirection();

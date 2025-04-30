@@ -8,6 +8,13 @@
         </button>
     </div>
 
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-success">
+            <i class="bi bi-check-circle"></i> @TempData["Message"]
+        </div>
+    }
+
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
@@ -93,7 +100,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
-            <form asp-controller="Device" asp-action="connect" method="post">
+            <form asp-controller="Device" asp-action="ConnectByIP" method="post">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Adresse IP</label>
@@ -106,7 +113,7 @@
                         <label class="form-label">Port</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-ethernet"></i></span>
-                            <input name="port" id="port" class="form-control" value="51211" required />
+                            <input name="port" id="port" type="number" class="form-control" value="51211" required />
                         </div>
                     </div>
                 </div>
