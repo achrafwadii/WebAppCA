@@ -15,6 +15,13 @@
         </div>
     }
 
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i> @TempData["Error"]
+        </div>
+    }
+
     <div class="card shadow-sm">
         <div class="card-body">
             <div class="table-responsive">
@@ -44,7 +51,7 @@
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <form asp-controller="Device" asp-action="Connect" method="post">
+                                            <form asp-controller="Device" asp-action="ConnectByDeviceID" method="post">
                                                 <input type="hidden" name="deviceID" value="@device.DeviceID" />
                                                 <button type="submit" class="btn btn-sm btn-outline-primary" title="Connecter">
                                                     <i class="bi bi-plug"></i>
@@ -100,7 +107,7 @@
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
-            <form asp-controller="Device" asp-action="ConnectByIP" method="post">
+            <form asp-controller="Device" asp-action="ConnectByIPAndPort" method="post">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Adresse IP</label>

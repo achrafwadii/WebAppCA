@@ -2,37 +2,23 @@ using WebAppCA.Services;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using WebAppCA.Extensions;
+using Microsoft.EntityFrameworkCore;
+using WebAppCA.Data;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Import SetDllDirectory
-[DllImport("kernel32", SetLastError = true)]
-static extern bool SetDllDirectory(string lpPathName);
-
-// Chemin vers les DLL
-var sdkDir = Path.Combine(AppContext.BaseDirectory, "BioStarSDK", "lib");
-
-// Ajoute le dossier natif au chargement des DLL
-SetDllDirectory(sdkDir);
-
-// Vérifie et crée le dossier si nécessaire
-if (!Directory.Exists(sdkDir))
-{
-    Directory.CreateDirectory(sdkDir);
-    Console.WriteLine($"Création du dossier {sdkDir}");
-}
-
-// Ajoute au PATH pour les processus enfants
-var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-if (!path.Contains(sdkDir))
-{
-    Environment.SetEnvironmentVariable("PATH", path + Path.PathSeparator + sdkDir);
-    Console.WriteLine("SDK ajouté au PATH");
-}
 
 // Services
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
+builder.Services.AddScoped<DeviceDbService>();
+builder.Services.AddScoped<ConnectSvc>();
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sqlOptions => sqlOptions.EnableRetryOnFailure()
+    ));
+builder.Services.AddGrpcServices(builder.Configuration);
 
 builder.Services.AddCors(o =>
     o.AddPolicy("AllowLocalhost", p =>
@@ -48,6 +34,12 @@ builder.Services.AddSession(o =>
 
 var app = builder.Build();
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios.
+    app.UseHsts();
+}
 app.UseCors("AllowLocalhost");
 app.UseHttpsRedirection();
 app.UseStaticFiles();

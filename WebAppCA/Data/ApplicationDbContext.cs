@@ -9,7 +9,7 @@ namespace WebAppCA.Data
             : base(options)
         {
         }
-
+            public DbSet<DeviceInfo> Devices { get; set; }
         public DbSet<Utilisateur> Utilisateurs { get; set; }
         public DbSet<Pointage> Pointages { get; set; }
         public DbSet<PointAcces> PointsAcces { get; set; }
