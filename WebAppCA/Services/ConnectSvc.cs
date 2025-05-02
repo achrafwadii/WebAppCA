@@ -3,6 +3,7 @@ using Grpc.Core;
 using Google.Protobuf.Collections;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
+using System;
 
 namespace WebAppCA.Services
 {
@@ -11,6 +12,7 @@ namespace WebAppCA.Services
         private const int SEARCH_TIMEOUT_MS = 5000;
         private readonly ILogger<ConnectSvc> _logger;
         private Connect.Connect.ConnectClient _connectClient;
+        private bool _isConnected = false;
 
         // Constructor for Grpc.Core.Channel (legacy)
         public ConnectSvc(Channel channel, ILogger<ConnectSvc> logger = null)
@@ -18,12 +20,22 @@ namespace WebAppCA.Services
             _logger = logger;
             if (channel != null)
             {
-                _connectClient = new Connect.Connect.ConnectClient(channel);
-                _logger?.LogInformation("ConnectSvc initialisé avec Grpc.Core.Channel");
+                try
+                {
+                    _connectClient = new Connect.Connect.ConnectClient(channel);
+                    _isConnected = true;
+                    _logger?.LogInformation("ConnectSvc initialisé avec Grpc.Core.Channel");
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Erreur lors de l'initialisation du client ConnectSvc: {Message}", ex.Message);
+                    _isConnected = false;
+                }
             }
             else
             {
                 _logger?.LogWarning("ConnectSvc initialisé avec un channel null");
+                _isConnected = false;
             }
         }
 
@@ -33,12 +45,22 @@ namespace WebAppCA.Services
             _logger = logger;
             if (channel != null)
             {
-                _connectClient = new Connect.Connect.ConnectClient(channel);
-                _logger?.LogInformation("ConnectSvc initialisé avec GrpcChannel");
+                try
+                {
+                    _connectClient = new Connect.Connect.ConnectClient(channel);
+                    _isConnected = true;
+                    _logger?.LogInformation("ConnectSvc initialisé avec GrpcChannel");
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, "Erreur lors de l'initialisation du client ConnectSvc: {Message}", ex.Message);
+                    _isConnected = false;
+                }
             }
             else
             {
                 _logger?.LogWarning("ConnectSvc initialisé avec un GrpcChannel null");
+                _isConnected = false;
             }
         }
 
@@ -46,26 +68,26 @@ namespace WebAppCA.Services
         {
             _logger = logger;
             _logger?.LogWarning("ConnectSvc initialisé sans channel (aucune connexion disponible)");
-        }
-        public ConnectSvc()
-        {
-            // Cette implémentation sera utilisée en mode fallback quand le canal gRPC n'est pas disponible
-            // Ne pas lancer d'exceptions, mais logger ou retourner des valeurs par défaut
+            _isConnected = false;
         }
 
-        private void EnsureConnectClient()
+        public bool IsConnected => _isConnected && _connectClient != null;
+
+        private bool EnsureConnectClient()
         {
-            if (_connectClient == null)
+            if (_connectClient == null || !_isConnected)
             {
-                var errorMessage = "Le client gRPC n'est pas initialisé. Assurez-vous que le canal (channel) est correctement configuré.";
+                var errorMessage = "Le service de connexion gRPC n'est pas disponible. Vérifiez que le serveur gRPC est en cours d'exécution.";
                 _logger?.LogError(errorMessage);
-                throw new InvalidOperationException(errorMessage);
+                return false;
             }
+            return true;
         }
 
         public RepeatedField<Connect.DeviceInfo> GetDeviceList()
         {
-            EnsureConnectClient();
+            if (!EnsureConnectClient())
+                return new RepeatedField<Connect.DeviceInfo>();
 
             try
             {
@@ -76,9 +98,45 @@ namespace WebAppCA.Services
             catch (RpcException ex)
             {
                 _logger?.LogError(ex, "Erreur lors de l'appel à GetDeviceList: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
+                _isConnected = false;
+                return new RepeatedField<Connect.DeviceInfo>();
+            }
+        }
+
+        public uint Connect(Connect.ConnectInfo connectInfo)
+        {
+            EnsureConnectClient();
+
+            try
+            {
+                _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port} avec UseSSL={UseSSL}",
+                    connectInfo.IPAddr, connectInfo.Port, connectInfo.UseSSL);
+
+                var request = new ConnectRequest { ConnectInfo = connectInfo };
+                var response = _connectClient.Connect(request);
+
+                _logger?.LogInformation("Connexion réussie. DeviceID: {DeviceID}", response.DeviceID);
+
+                if (response.DeviceID <= 0)
+                {
+                    _logger?.LogWarning("Le service a retourné un DeviceID invalide: {DeviceID}", response.DeviceID);
+                }
+
+                return response.DeviceID;
+            }
+            catch (RpcException ex)
+            {
+                _logger?.LogError(ex, "Erreur lors de l'appel à Connect pour {IPAddr}:{Port}: {StatusCode} - {Message}",
+                    connectInfo.IPAddr, connectInfo.Port, ex.StatusCode, ex.Message);
+
+                // Log detailed status
+                _logger?.LogError("Status détaillé: {Status}", ex.Status?.ToString() ?? "Inconnu");
+
                 throw;
             }
         }
+
+
 
         public RepeatedField<Connect.SearchDeviceInfo> SearchDevice()
         {
@@ -93,26 +151,6 @@ namespace WebAppCA.Services
             catch (RpcException ex)
             {
                 _logger?.LogError(ex, "Erreur lors de l'appel à SearchDevice: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
-                throw;
-            }
-        }
-
-        public uint Connect(Connect.ConnectInfo connectInfo)
-        {
-            EnsureConnectClient();
-
-            try
-            {
-                _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port}", connectInfo.IPAddr, connectInfo.Port);
-                var request = new ConnectRequest { ConnectInfo = connectInfo };
-                var response = _connectClient.Connect(request);
-                _logger?.LogInformation("Connexion réussie. DeviceID: {DeviceID}", response.DeviceID);
-                return response.DeviceID;
-            }
-            catch (RpcException ex)
-            {
-                _logger?.LogError(ex, "Erreur lors de l'appel à Connect pour {IPAddr}:{Port}: {StatusCode} - {Message}",
-                    connectInfo.IPAddr, connectInfo.Port, ex.StatusCode, ex.Message);
                 throw;
             }
         }

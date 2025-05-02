@@ -8,6 +8,9 @@ using System.Threading.Tasks;
 using ConnectInfo = Connect.ConnectInfo;
 using DbDeviceInfo = WebAppCA.Models.DeviceInfo;
 using Microsoft.Extensions.Logging;
+using Grpc.Net.Client;
+using Microsoft.Extensions.Configuration;
+using WebAppCA.Extensions;
 
 namespace WebAppCA.Controllers
 {
@@ -15,15 +18,21 @@ namespace WebAppCA.Controllers
     {
         private readonly ConnectSvc _connectSvc;
         private readonly DeviceDbService _deviceDbService;
+        private readonly GatewayClient _gatewayClient;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<DeviceController> _logger;
 
         public DeviceController(
-            ConnectSvc connectSvc, 
+            ConnectSvc connectSvc,
             DeviceDbService deviceDbService,
+            GatewayClient gatewayClient,
+            IConfiguration configuration,
             ILogger<DeviceController> logger = null)
         {
             _connectSvc = connectSvc;
             _deviceDbService = deviceDbService;
+            _gatewayClient = gatewayClient;
+            _configuration = configuration;
             _logger = logger;
         }
 
@@ -39,6 +48,9 @@ namespace WebAppCA.Controllers
             try
             {
                 _logger?.LogInformation($"Tentative de connexion à {ip}:{port}");
+
+                // Vérifier si le service gRPC est disponible
+                EnsureGrpcConnection();
 
                 var connectInfo = new ConnectInfo
                 {
@@ -62,19 +74,20 @@ namespace WebAppCA.Controllers
                 if (deviceID > 0)
                 {
                     _logger?.LogInformation($"Connexion réussie. DeviceID: {deviceID}");
-                    
+
                     // Création ou mise à jour de l'appareil dans la base de données
-                    try 
+                    try
                     {
                         var existingDevice = _deviceDbService.GetDeviceById((int)deviceID);
-                        
+
                         if (existingDevice == null)
                         {
                             _logger?.LogInformation($"Création d'un nouvel appareil avec ID: {deviceID}");
                             var newDevice = new DbDeviceInfo
                             {
+                                DeviceId = (int)deviceID, // Make sure ID is set properly
                                 Name = $"Device-{deviceID}",
-                                IPAddress = ip,
+                                IPAddress = ip ?? "unknown", // Prevent nulls
                                 Port = port,
                                 UseSSL = false,
                                 Description = "Ajouté automatiquement",
@@ -87,13 +100,15 @@ namespace WebAppCA.Controllers
                         else
                         {
                             _logger?.LogInformation($"Mise à jour de l'appareil existant avec ID: {deviceID}");
-                            existingDevice.IPAddress = ip;
+                            // Ensure no properties are null before updating
+                            existingDevice.IPAddress = ip ?? existingDevice.IPAddress ?? "unknown";
                             existingDevice.Port = port;
                             existingDevice.LastConnectionTime = DateTime.Now;
                             existingDevice.IsConnected = true;
                             existingDevice.Status = "Connecté";
                             _deviceDbService.UpdateDevice(existingDevice);
                         }
+
                     }
                     catch (Exception ex)
                     {
@@ -108,6 +123,11 @@ namespace WebAppCA.Controllers
                     _logger?.LogWarning($"Échec de connexion à {ip}:{port}. DeviceID retourné: {deviceID}");
                     TempData["Error"] = "Échec de la connexion : ID de dispositif invalide retourné";
                 }
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("client gRPC n'est pas initialisé"))
+            {
+                _logger?.LogError(ex, "Erreur de connexion gRPC: {Message}", ex.Message);
+                TempData["Error"] = "Le service de connexion gRPC n'est pas disponible. Vérifiez que le serveur gRPC est en cours d'exécution.";
             }
             catch (Exception ex)
             {
@@ -130,7 +150,10 @@ namespace WebAppCA.Controllers
             try
             {
                 _logger?.LogInformation($"Tentative de connexion par ID: {deviceID}");
-                
+
+                // Vérifier si le service gRPC est disponible
+                EnsureGrpcConnection();
+
                 // Récupérer les informations de l'appareil depuis la base de données
                 var deviceInfo = _deviceDbService.GetDeviceById(deviceID);
 
@@ -150,7 +173,7 @@ namespace WebAppCA.Controllers
                 };
 
                 uint connectedDeviceId = 0;
-                try 
+                try
                 {
                     // Se connecter à l'appareil en utilisant le service de connexion
                     connectedDeviceId = _connectSvc.Connect(connectInfo);
@@ -166,7 +189,7 @@ namespace WebAppCA.Controllers
                 if (connectedDeviceId > 0)
                 {
                     _logger?.LogInformation($"Connexion réussie à l'appareil ID: {deviceID}");
-                    
+
                     try
                     {
                         // Mettre à jour le statut de connexion dans la base de données
@@ -189,6 +212,11 @@ namespace WebAppCA.Controllers
                     TempData["Error"] = "Échec de la connexion à l'appareil";
                 }
             }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("client gRPC n'est pas initialisé"))
+            {
+                _logger?.LogError(ex, "Erreur de connexion gRPC: {Message}", ex.Message);
+                TempData["Error"] = "Le service de connexion gRPC n'est pas disponible. Vérifiez que le serveur gRPC est en cours d'exécution.";
+            }
             catch (Exception ex)
             {
                 _logger?.LogError(ex, $"Exception non gérée lors de la connexion à l'appareil {deviceID}: {ex.Message}");
@@ -198,6 +226,53 @@ namespace WebAppCA.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        /// <summary>
+        /// S'assure que la connexion gRPC est active, essaie de la rétablir si nécessaire
+        /// </summary>
+        private void EnsureGrpcConnection()
+        {
+            // Vérifier si _connectSvc a une méthode IsAvailable (dans la version améliorée)
+            var connectSvcType = _connectSvc.GetType();
+            var isAvailableMethod = connectSvcType.GetMethod("IsAvailable");
+
+            if (isAvailableMethod != null)
+            {
+                bool isAvailable = (bool)isAvailableMethod.Invoke(_connectSvc, null);
+                if (!isAvailable)
+                {
+                    _logger?.LogWarning("Le service ConnectSvc n'est pas disponible, tentative de reconnexion");
+
+                    // Tenter de reconnecter le GatewayClient
+                    var certPath = _configuration.GetValue<string>("GrpcSettings:CaCertPath") ?? "";
+                    var address = _configuration.GetValue<string>("GrpcSettings:Address") ?? "localhost";
+                    var port = _configuration.GetValue<int>("GrpcSettings:Port", 51211);
+
+                    bool reconnected = _gatewayClient.Connect(certPath, address, port);
+
+                    if (reconnected)
+                    {
+                        _logger?.LogInformation("Reconnexion du GatewayClient réussie");
+
+                        // Maintenant, essayer de réinitialiser ConnectSvc avec le nouveau canal
+                        var tryReconnectMethod = connectSvcType.GetMethod("TryReconnect");
+                        if (tryReconnectMethod != null)
+                        {
+                            bool success = (bool)tryReconnectMethod.Invoke(_connectSvc, new object[] { _gatewayClient.Channel });
+                            if (!success)
+                            {
+                                _logger?.LogError("Échec de la réinitialisation de ConnectSvc");
+                                throw new InvalidOperationException("Le client gRPC n'est pas initialisé. Assurez-vous que le canal (channel) est correctement configuré.");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger?.LogError("Échec de la reconnexion du GatewayClient");
+                        throw new InvalidOperationException("Le client gRPC n'est pas initialisé. Assurez-vous que le canal (channel) est correctement configuré.");
+                    }
+                }
+            }
+        } 
         // Les autres méthodes restent similaires, avec l'ajout de journalisation appropriée
     }
 }

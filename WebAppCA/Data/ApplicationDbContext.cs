@@ -30,6 +30,34 @@ namespace WebAppCA.Data
                 .WithMany()
                 .HasForeignKey(p => p.PointAccesId)
                 .OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Pointage>()
+                .HasOne(p => p.Utilisateur)
+                .WithMany()
+                .HasForeignKey(p => p.UtilisateurId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Pointage>()
+                .HasOne(p => p.PointAcces)
+                .WithMany()
+                .HasForeignKey(p => p.PointAccesId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure DeviceInfo nullable properties
+            modelBuilder.Entity<DeviceInfo>()
+                .Property(d => d.Name)
+                .IsRequired(false);
+
+            modelBuilder.Entity<DeviceInfo>()
+                .Property(d => d.Description)
+                .IsRequired(false);
+
+            modelBuilder.Entity<DeviceInfo>()
+                .Property(d => d.Status)
+                .IsRequired(false);
+
+            modelBuilder.Entity<DeviceInfo>()
+                .Property(d => d.LastConnectionTime)
+                .IsRequired(false);
         }
     }
 }

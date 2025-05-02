@@ -29,6 +29,12 @@ namespace WebAppCA.Services
 
         public int AddDevice(DeviceInfo device)
         {
+            // Ensure required properties aren't null
+            if (string.IsNullOrEmpty(device.IPAddress))
+            {
+                device.IPAddress = "unknown";
+            }
+
             _context.Devices.Add(device);
             _context.SaveChanges();
             return device.DeviceId;
@@ -38,6 +44,12 @@ namespace WebAppCA.Services
         {
             try
             {
+                // Ensure required properties aren't null
+                if (string.IsNullOrEmpty(device.IPAddress))
+                {
+                    device.IPAddress = "unknown";
+                }
+
                 _context.Entry(device).State = EntityState.Modified;
                 _context.SaveChanges();
                 return true;
@@ -47,6 +59,7 @@ namespace WebAppCA.Services
                 return false;
             }
         }
+
 
         public bool DeleteDevice(int deviceId)
         {
