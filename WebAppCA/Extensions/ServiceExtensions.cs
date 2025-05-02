@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using WebAppCA.Services;
 using System;
 
@@ -9,25 +10,36 @@ namespace WebAppCA.Extensions
     {
         public static IServiceCollection AddGrpcServices(this IServiceCollection services, IConfiguration configuration)
         {
-            // Register GatewayClient as a singleton
+            // Enregistrer GatewayClient comme Singleton
             services.AddSingleton<GatewayClient>();
 
-            // Register ConnectSvc as a scoped service with a factory that resolves GrpcChannel from GatewayClient
+            // Enregistrer ConnectSvc comme service Scoped avec une factory
             services.AddScoped<ConnectSvc>(provider =>
             {
                 var gatewayClient = provider.GetRequiredService<GatewayClient>();
+                var logger = provider.GetRequiredService<ILogger<ConnectSvc>>();
 
-                // Make sure the GatewayClient is connected before creating ConnectSvc
+                // Vérifier si le client Gateway est connecté avant de créer ConnectSvc
                 if (gatewayClient.Channel == null)
                 {
+                    logger.LogInformation("Initialisation de la connexion gRPC");
+
                     var certPath = configuration.GetValue<string>("GrpcSettings:CaCertPath") ?? "";
                     var address = configuration.GetValue<string>("GrpcSettings:Address") ?? "localhost";
                     var port = configuration.GetValue<int>("GrpcSettings:Port", 51211);
 
-                    gatewayClient.Connect(certPath, address, port);
+                    logger.LogInformation("Configuration gRPC: Adresse={Address}, Port={Port}, CertPath={CertPath}",
+                        address, port, certPath);
+
+                    var connected = gatewayClient.Connect(certPath, address, port);
+
+                    if (!connected)
+                    {
+                        logger.LogWarning("Impossible de se connecter au service gRPC, le service ConnectSvc sera limité");
+                    }
                 }
 
-                return new ConnectSvc(gatewayClient.Channel);
+                return new ConnectSvc(gatewayClient.Channel, logger);
             });
 
             return services;

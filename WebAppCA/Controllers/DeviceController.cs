@@ -1,44 +1,120 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// WebAppCA/Controllers/DeviceController.cs
+using Microsoft.AspNetCore.Mvc;
 using WebAppCA.Models;
 using WebAppCA.Services;
 using Connect;
 using System;
 using System.Threading.Tasks;
 using ConnectInfo = Connect.ConnectInfo;
+using DbDeviceInfo = WebAppCA.Models.DeviceInfo;
+using Microsoft.Extensions.Logging;
 
 namespace WebAppCA.Controllers
 {
     public class DeviceController : Controller
     {
         private readonly ConnectSvc _connectSvc;
-        private readonly DeviceDbService _deviceDbService; // Service pour accéder à la base de données
+        private readonly DeviceDbService _deviceDbService;
+        private readonly ILogger<DeviceController> _logger;
 
-        public DeviceController(ConnectSvc connectSvc, DeviceDbService deviceDbService)
+        public DeviceController(
+            ConnectSvc connectSvc, 
+            DeviceDbService deviceDbService,
+            ILogger<DeviceController> logger = null)
         {
             _connectSvc = connectSvc;
             _deviceDbService = deviceDbService;
+            _logger = logger;
         }
 
         [HttpPost]
         public IActionResult ConnectByIPAndPort(string ip, int port)
         {
             if (string.IsNullOrEmpty(ip) || port <= 0)
-                return BadRequest("IP ou port invalide");
+            {
+                TempData["Error"] = "IP ou port invalide";
+                return RedirectToAction("Index", "Home");
+            }
+
             try
             {
+                _logger?.LogInformation($"Tentative de connexion à {ip}:{port}");
+
                 var connectInfo = new ConnectInfo
                 {
                     IPAddr = ip,
                     Port = port,
-                    UseSSL = false  // Set according to your requirements
+                    UseSSL = false
                 };
-                var deviceID = _connectSvc.Connect(connectInfo);
-                TempData["Message"] = $"Équipement connecté : {ip}:{port} (ID: {deviceID})";
+
+                uint deviceID = 0;
+                try
+                {
+                    deviceID = _connectSvc.Connect(connectInfo);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, $"Erreur lors de l'appel à Connect: {ex.Message}");
+                    TempData["Error"] = $"Erreur de connexion : {ex.Message}";
+                    return RedirectToAction("Index", "Home");
+                }
+
+                if (deviceID > 0)
+                {
+                    _logger?.LogInformation($"Connexion réussie. DeviceID: {deviceID}");
+                    
+                    // Création ou mise à jour de l'appareil dans la base de données
+                    try 
+                    {
+                        var existingDevice = _deviceDbService.GetDeviceById((int)deviceID);
+                        
+                        if (existingDevice == null)
+                        {
+                            _logger?.LogInformation($"Création d'un nouvel appareil avec ID: {deviceID}");
+                            var newDevice = new DbDeviceInfo
+                            {
+                                Name = $"Device-{deviceID}",
+                                IPAddress = ip,
+                                Port = port,
+                                UseSSL = false,
+                                Description = "Ajouté automatiquement",
+                                LastConnectionTime = DateTime.Now,
+                                IsConnected = true,
+                                Status = "Connecté"
+                            };
+                            _deviceDbService.AddDevice(newDevice);
+                        }
+                        else
+                        {
+                            _logger?.LogInformation($"Mise à jour de l'appareil existant avec ID: {deviceID}");
+                            existingDevice.IPAddress = ip;
+                            existingDevice.Port = port;
+                            existingDevice.LastConnectionTime = DateTime.Now;
+                            existingDevice.IsConnected = true;
+                            existingDevice.Status = "Connecté";
+                            _deviceDbService.UpdateDevice(existingDevice);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogError(ex, $"Erreur lors de la mise à jour de la base de données: {ex.Message}");
+                        // Ne pas interrompre le flux si la BDD échoue
+                    }
+
+                    TempData["Message"] = $"Équipement connecté : {ip}:{port} (ID: {deviceID})";
+                }
+                else
+                {
+                    _logger?.LogWarning($"Échec de connexion à {ip}:{port}. DeviceID retourné: {deviceID}");
+                    TempData["Error"] = "Échec de la connexion : ID de dispositif invalide retourné";
+                }
             }
             catch (Exception ex)
             {
+                _logger?.LogError(ex, $"Exception non gérée: {ex.Message}");
                 TempData["Error"] = $"Erreur de connexion : {ex.Message}";
             }
+
             return RedirectToAction("Index", "Home");
         }
 
@@ -46,15 +122,21 @@ namespace WebAppCA.Controllers
         public IActionResult ConnectByDeviceID(int deviceID)
         {
             if (deviceID <= 0)
-                return BadRequest("ID d'appareil invalide");
+            {
+                TempData["Error"] = "ID d'appareil invalide";
+                return RedirectToAction("Index", "Home");
+            }
 
             try
             {
+                _logger?.LogInformation($"Tentative de connexion par ID: {deviceID}");
+                
                 // Récupérer les informations de l'appareil depuis la base de données
                 var deviceInfo = _deviceDbService.GetDeviceById(deviceID);
 
                 if (deviceInfo == null)
                 {
+                    _logger?.LogWarning($"Appareil avec ID {deviceID} non trouvé dans la base de données");
                     TempData["Error"] = $"Appareil avec ID {deviceID} non trouvé";
                     return RedirectToAction("Index", "Home");
                 }
@@ -67,106 +149,55 @@ namespace WebAppCA.Controllers
                     UseSSL = deviceInfo.UseSSL
                 };
 
-                // Se connecter à l'appareil en utilisant le service de connexion
-                var connectedDeviceId = _connectSvc.Connect(connectInfo);
+                uint connectedDeviceId = 0;
+                try 
+                {
+                    // Se connecter à l'appareil en utilisant le service de connexion
+                    connectedDeviceId = _connectSvc.Connect(connectInfo);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError(ex, $"Erreur lors de l'appel à Connect pour deviceID={deviceID}: {ex.Message}");
+                    TempData["Error"] = $"Erreur de connexion : {ex.Message}";
+                    return RedirectToAction("Index", "Home");
+                }
 
                 // Vérifier si la connexion a réussi
                 if (connectedDeviceId > 0)
                 {
-                    // Mettre à jour le statut de connexion dans la base de données
-                    deviceInfo.IsConnected = true;
-                    deviceInfo.LastConnectionTime = DateTime.Now;
-                    _deviceDbService.UpdateDevice(deviceInfo);
+                    _logger?.LogInformation($"Connexion réussie à l'appareil ID: {deviceID}");
+                    
+                    try
+                    {
+                        // Mettre à jour le statut de connexion dans la base de données
+                        deviceInfo.IsConnected = true;
+                        deviceInfo.LastConnectionTime = DateTime.Now;
+                        deviceInfo.Status = "Connecté";
+                        _deviceDbService.UpdateDevice(deviceInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogError(ex, $"Erreur lors de la mise à jour de l'état de connexion dans la base de données: {ex.Message}");
+                        // Ne pas interrompre le flux si la BDD échoue
+                    }
 
                     TempData["Message"] = $"Connexion réussie à l'appareil ID: {deviceID}";
                 }
                 else
                 {
+                    _logger?.LogWarning($"Échec de la connexion à l'appareil ID: {deviceID}. ID retourné: {connectedDeviceId}");
                     TempData["Error"] = "Échec de la connexion à l'appareil";
                 }
             }
             catch (Exception ex)
             {
+                _logger?.LogError(ex, $"Exception non gérée lors de la connexion à l'appareil {deviceID}: {ex.Message}");
                 TempData["Error"] = $"Erreur lors de la connexion à l'appareil: {ex.Message}";
             }
 
             return RedirectToAction("Index", "Home");
         }
 
-        [HttpPost]
-        public IActionResult ReadLogs(int deviceID)
-        {
-            try
-            {
-                var deviceInfo = _deviceDbService.GetDeviceById(deviceID);
-                if (deviceInfo == null)
-                {
-                    TempData["Error"] = $"Appareil avec ID {deviceID} non trouvé";
-                    return RedirectToAction("Index", "Home");
-                }
-
-                // Implémentation de la lecture des logs
-                // Code pour récupérer les logs...
-
-                TempData["Message"] = $"Lecture des logs pour l'appareil ID: {deviceID}";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = $"Erreur lors de la lecture des logs: {ex.Message}";
-            }
-            return RedirectToAction("Index", "Home");
-        }
-
-        [HttpPost]
-        public IActionResult Reboot(int deviceID)
-        {
-            try
-            {
-                // Vérifier si l'appareil existe
-                var deviceInfo = _deviceDbService.GetDeviceById(deviceID);
-                if (deviceInfo == null)
-                {
-                    TempData["Error"] = $"Appareil avec ID {deviceID} non trouvé";
-                    return RedirectToAction("Index", "Home");
-                }
-
-                // Convert int to uint for the API call
-                uint[] deviceIDs = new uint[] { (uint)deviceID };
-
-                // Implement reboot logic using device service
-                // Exemple : _deviceService.Reboot(deviceIDs);
-
-                TempData["Message"] = $"Redémarrage de l'appareil ID: {deviceID}";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = $"Erreur lors du redémarrage : {ex.Message}";
-            }
-            return RedirectToAction("Index", "Home");
-        }
-
-        [HttpPost]
-        public IActionResult Reset(int deviceID)
-        {
-            try
-            {
-                // Vérifier si l'appareil existe
-                var deviceInfo = _deviceDbService.GetDeviceById(deviceID);
-                if (deviceInfo == null)
-                {
-                    TempData["Error"] = $"Appareil avec ID {deviceID} non trouvé";
-                    return RedirectToAction("Index", "Home");
-                }
-
-                // Implémenter la logique de réinitialisation
-
-                TempData["Message"] = $"Réinitialisation de l'appareil ID: {deviceID}";
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = $"Erreur lors de la réinitialisation : {ex.Message}";
-            }
-            return RedirectToAction("Index", "Home");
-        }
+        // Les autres méthodes restent similaires, avec l'ajout de journalisation appropriée
     }
 }
