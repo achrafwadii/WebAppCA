@@ -130,7 +130,7 @@ namespace WebAppCA.Services
                     connectInfo.IPAddr, connectInfo.Port, ex.StatusCode, ex.Message);
 
                 // Log detailed status
-                _logger?.LogError("Status détaillé: {Status}", ex.Status?.ToString() ?? "Inconnu");
+                _logger?.LogError("Status détaillé: {Status}", ex.Status.ToString() ?? "Inconnu");
 
                 throw;
             }
