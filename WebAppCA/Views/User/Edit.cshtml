@@ -1,0 +1,255 @@
+﻿@model WebAppCA.Models.Utilisateur
+@{
+    ViewData["Title"] = "Modifier l'utilisateur - TimeTrack";
+}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-gear"></i> Modifier l'utilisateur</h2>
+        <div>
+            <a asp-controller="User" asp-action="Index" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Retour à la liste
+            </a>
+            <a asp-controller="User" asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-info">
+                <i class="bi bi-eye"></i> Voir les détails
+            </a>
+        </div>
+    </div>
+    <form asp-controller="User" asp-action="Edit" method="post">
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger mb-3" role="alert"></div>
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="CreatedAt" />
+        <input type="hidden" asp-for="LastLogin" />
+        <!-- Section Informations Utilisateur -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Informations Utilisateur</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-2">
+                        <div class="text-center mb-3">
+                            <div class="user-photo-container bg-light rounded mb-2" style="width: 150px; height: 150px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
+                                <i class="bi bi-person" style="font-size: 5rem; color: #ccc;"></i>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
+                                <i class="bi bi-upload"></i> Changer la photo
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-10">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Nom" class="form-control" placeholder="Nom" />
+                                    <label asp-for="Nom"></label>
+                                    <span asp-validation-for="Nom" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Prenom" class="form-control" placeholder="Prénom" />
+                                    <label asp-for="Prenom"></label>
+                                    <span asp-validation-for="Prenom" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Email" class="form-control" placeholder="Email" />
+                                    <label asp-for="Email"></label>
+                                    <span asp-validation-for="Email" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Telephone" class="form-control" placeholder="Téléphone" />
+                                    <label asp-for="Telephone"></label>
+                                    <span asp-validation-for="Telephone" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Departement" class="form-control" placeholder="Département" />
+                                    <label asp-for="Departement"></label>
+                                    <span asp-validation-for="Departement" class="text-danger"></span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-floating mb-3">
+                                    <input asp-for="Position" class="form-control" placeholder="Position" />
+                                    <label asp-for="Position"></label>
+                                    <span asp-validation-for="Position" class="text-danger"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Authentification -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Authentification</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input asp-for="BadgeNumber" class="form-control" placeholder="Numéro de badge" />
+                            <label asp-for="BadgeNumber"></label>
+                            <span asp-validation-for="BadgeNumber" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <input asp-for="PIN" class="form-control" placeholder="PIN" type="password" />
+                            <label asp-for="PIN"></label>
+                            <span asp-validation-for="PIN" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <select asp-for="UserType" class="form-select">
+                                <option value="Employé">Employé</option>
+                                <option value="Administrateur">Administrateur</option>
+                                <option value="Superviseur">Superviseur</option>
+                            </select>
+                            <label asp-for="UserType"></label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <select asp-for="SecurityLevel" class="form-select">
+                                <option value="1">1 - Minimal</option>
+                                <option value="2">2 - Bas</option>
+                                <option value="3">3 - Moyen</option>
+                                <option value="4">4 - Élevé</option>
+                                <option value="5">5 - Maximum</option>
+                            </select>
+                            <label asp-for="SecurityLevel"></label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="authModeSwitch" name="authModeSwitch" @(!Model.UseCustomAuthMode ? "checked" : "") />
+                            <label class="form-check-label" for="authModeSwitch">Utiliser le mode d'authentification par défaut</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating mb-3">
+                            <select asp-for="BioStarOperator" class="form-select">
+                                <option value="Jamais">Jamais</option>
+                                <option value="Toujours">Toujours</option>
+                                <option value="Optionnel">Optionnel</option>
+                            </select>
+                            <label asp-for="BioStarOperator"></label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Période d'activité -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Période d'activité</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="StartDate" class="form-label">Date de début</label>
+                        <input asp-for="StartDate" class="form-control" type="date" />
+                        <span asp-validation-for="StartDate" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="EndDate" class="form-label">Date de fin</label>
+                        <input asp-for="EndDate" class="form-control" type="date" />
+                        <span asp-validation-for="EndDate" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="StartTime" class="form-label">Heure de début</label>
+                        <input asp-for="StartTime" class="form-control" type="time" />
+                        <span asp-validation-for="StartTime" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="EndTime" class="form-label">Heure de fin</label>
+                        <input asp-for="EndTime" class="form-control" type="time" />
+                        <span asp-validation-for="EndTime" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section Statut -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Statut</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="statusSwitch" name="statusSwitch" @(Model.Status == "Actif" ? "checked" : "") />
+                    <label class="form-check-label" for="statusSwitch">Actif</label>
+                </div>
+                <small class="text-muted">L'utilisateur sera @(Model.Status == "Actif" ? "actif" : "inactif") dans le système.</small>
+            </div>
+        </div>
+
+        <!-- Informations système -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Informations système</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <p><strong>Date de création:</strong> @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</p>
+                        <p><strong>Dernière connexion:</strong> @(Model.LastLogin.HasValue ? Model.LastLogin.Value.ToString("dd/MM/yyyy HH:mm") : "Jamais")</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>IP dernière connexion:</strong> @(string.IsNullOrEmpty(Model.IPAddress) ? "N/A" : Model.IPAddress)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Boutons d'action -->
+        <div class="d-flex justify-content-between mb-4">
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                <i class="bi bi-trash"></i> Supprimer
+            </button>
+            <div>
+                <a asp-action="Index" class="btn btn-secondary me-2">Annuler</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal de confirmation de suppression -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirmer la suppression</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Êtes-vous sûr de vouloir supprimer cet utilisateur? Cette action est irréversible.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+                    <button type="submit" class="btn btn-danger">Supprimer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

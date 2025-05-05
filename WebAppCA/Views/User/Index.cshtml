@@ -1,109 +1,131 @@
-﻿@model List<WebAppCA.Models.UserInfoModel>
+﻿@model IEnumerable<WebAppCA.Models.Utilisateur>
 @{
-    ViewData["Title"] = "Gestion des Utilisateurs - TimeTrack";
+    ViewData["Title"] = "Gestion des utilisateurs - TimeTrack";
 }
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-people"></i> Gestion des Utilisateurs</h2>
-        <div>
-            <a asp-controller="User" asp-action="Create" class="btn btn-primary me-2">
-                <i class="bi bi-person-plus"></i> Ajouter un utilisateur
-            </a>
-            <button class="btn btn-outline-secondary">
-                <i class="bi bi-download"></i> Exporter
-            </button>
+        <h2><i class="bi bi-people"></i> Gestion des utilisateurs</h2>
+        <a asp-action="Create" class="btn btn-primary">
+            <i class="bi bi-person-plus"></i> Ajouter un utilisateur
+        </a>
+    </div>
+
+    @if (TempData["Message"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Message"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Filtres -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form asp-action="Index" method="get" class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" name="searchTerm" class="form-control" placeholder="Rechercher..." value="@Context.Request.Query["searchTerm"]" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select">
+                        <option value="">Tous les statuts</option>
+						<option value="Actif @(Context.Request.Query["status"] == "Actif" ? "selected" : "")">Actif</option>
+						<option value="Inactif @(Context.Request.Query["status"] == "Inactif" ? "selected" : "")">Inactif</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select name="departement" class="form-select">
+                        <option value="">Tous les départements</option>
+                        @foreach (var dept in ViewBag.Departments)
+                        {
+                            <option value="@dept @(Context.Request.Query["departement"] == dept ? "selected" : "")">@dept</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrer</button>
+                </div>
+            </form>
         </div>
     </div>
 
+    <!-- Tableau des utilisateurs -->
     <div class="card shadow-sm">
         <div class="card-body">
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <label class="form-label">Statut</label>
-                    <select class="form-select">
-                        <option>Tous les utilisateurs</option>
-                        <option>Actifs</option>
-                        <option>Inactifs</option>
-                        <option>Suspendus</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Département</label>
-                    <select class="form-select">
-                        <option>Tous les départements</option>
-                        <option>IT</option>
-                        <option>RH</option>
-                        <option>Commercial</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Recherche</label>
-                    <input type="text" class="form-control" placeholder="Nom, email, badge...">
-                </div>
-                <div class="col-md-3 d-flex align-items-end">
-                    <button class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Filtrer
-                    </button>
-                </div>
-            </div>
-
             <div class="table-responsive">
                 <table class="table table-hover">
-                    <thead class="table-light">
+                    <thead>
                         <tr>
-                            <th><i class="bi bi-person"></i> Nom</th>
-                            <th><i class="bi bi-person-badge"></i> Identifiant</th>
-                            <th><i class="bi bi-envelope"></i> Email</th>
-                            <th><i class="bi bi-building"></i> Département</th>
-                            <th><i class="bi bi-shield"></i> Type</th>
-                            <th><i class="bi bi-circle-fill"></i> Statut</th>
-                            <th><i class="bi bi-gear"></i> Actions</th>
+                            <th>Nom</th>
+                            <th>Email</th>
+                            <th>Département</th>
+                            <th>Badge</th>
+                            <th>Position</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @if (Model != null && Model.Any())
-                        {
-                            foreach (var user in Model)
-                            {
-                                <tr>
-                                    <td>@user.FullName</td>
-                                    <td>@user.Username</td>
-                                    <td>@user.Email</td>
-                                    <td>@user.Department</td>
-                                    <td>
-                                        <span class="badge @(user.UserType == "Admin" ? "bg-danger" : user.UserType == "Manager" ? "bg-warning text-dark" : "bg-primary")">
-                                            @user.UserType
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="badge @(user.Status == "Actif" ? "bg-success" : user.Status == "Inactif" ? "bg-secondary" : "bg-danger")">
-                                            @user.Status
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <a asp-controller="User" asp-action="Details" asp-route-id="@user.UserID" class="btn btn-sm btn-outline-info" title="Détails">
-                                                <i class="bi bi-eye"></i>
-                                            </a>
-                                            <a asp-controller="User" asp-action="Edit" asp-route-id="@user.UserID" class="btn btn-sm btn-outline-primary" title="Modifier">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer"
-                                                    data-bs-toggle="modal" data-bs-target="#deleteModal" data-user-id="@user.UserID" data-user-name="@user.FullName">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        }
-                        else
+                        @foreach (var item in Model)
                         {
                             <tr>
-                                <td colspan="7" class="text-center py-4">
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle"></i> Aucun utilisateur trouvé
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar avatar-sm me-2 bg-light rounded-circle d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-person text-secondary"></i>
+                                        </div>
+                                        @item.Nom @item.Prenom
+                                    </div>
+                                </td>
+                                <td>@item.Email</td>
+                                <td>@item.Departement</td>
+                                <td>@item.BadgeNumber</td>
+                                <td>@item.Position</td>
+                                <td>
+                                    @if (item.Status == "Actif")
+                                    {
+                                        <span class="badge bg-success">Actif</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">Inactif</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a asp-action="Details" asp-route-id="@item.Id" class="btn btn-sm btn-outline-info">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-@item.Id">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+
+                                    <!-- Modal de confirmation de suppression -->
+                                    <div class="modal fade" id="deleteModal-@item.Id" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Confirmer la suppression</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>@item.Nom @item.Prenom</strong>?
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                                    <form asp-action="Delete" asp-route-id="@item.Id" method="post">
+                                                        <button type="submit" class="btn btn-danger">Supprimer</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -112,128 +134,13 @@
                 </table>
             </div>
 
-            @if (Model != null && Model.Any())
+            @if (!Model.Any())
             {
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div>
-                        <span class="text-muted">Affichage de @Model.Count utilisateurs</span>
-                    </div>
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination mb-0">
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Précédent</a>
-                            </li>
-                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                            <li class="page-item"><a class="page-link" href="#">2</a></li>
-                            <li class="page-item"><a class="page-link" href="#">3</a></li>
-                            <li class="page-item">
-                                <a class="page-link" href="#">Suivant</a>
-                            </li>
-                        </ul>
-                    </nav>
+                <div class="text-center py-5">
+                    <i class="bi bi-search" style="font-size: 3rem; color: #ccc;"></i>
+                    <p class="mt-3">Aucun utilisateur trouvé.</p>
                 </div>
             }
         </div>
     </div>
 </div>
-
-<!-- Modal de confirmation de suppression -->
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="deleteModalLabel">
-                    <i class="bi bi-exclamation-triangle"></i> Confirmation de suppression
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
-            </div>
-            <div class="modal-body">
-                <p>Êtes-vous sûr de vouloir supprimer l'utilisateur <strong id="userName"></strong> ?</p>
-                <p class="text-danger">Cette action est irréversible.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> Annuler
-                </button>
-                <form id="deleteForm" asp-controller="User" asp-action="Delete" method="post">
-                    <input type="hidden" name="id" id="userIdToDelete" />
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> Supprimer
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-@if (TempData["Message"] != null)
-{
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
-        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header bg-success text-white">
-                <strong class="me-auto">Notification</strong>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body">
-                @TempData["Message"]
-            </div>
-        </div>
-    </div>
-}
-
-@section Scripts {
-    <script>
-        // Initialiser les tooltips Bootstrap
-        document.addEventListener('DOMContentLoaded', function() {
-            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
-            tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
-
-            // Modal de suppression
-            var deleteModal = document.getElementById('deleteModal');
-            if (deleteModal) {
-                deleteModal.addEventListener('show.bs.modal', function (event) {
-                    var button = event.relatedTarget;
-                    var userId = button.getAttribute('data-user-id');
-                    var userName = button.getAttribute('data-user-name');
-
-                    document.getElementById('userIdToDelete').value = userId;
-                    document.getElementById('userName').textContent = userName;
-                });
-            }
-
-            // Auto-hide toasts après 5 secondes
-            var toasts = document.querySelectorAll('.toast');
-            toasts.forEach(function(toast) {
-                setTimeout(function() {
-                    var bsToast = bootstrap.Toast.getInstance(toast);
-                    if (bsToast) {
-                        bsToast.hide();
-                    }
-                }, 5000);
-            });
-        });
-    </script>
-}
-
-@section Styles {
-    <style>
-        .table th {
-            white-space: nowrap;
-        }
-
-        .btn-group .btn {
-            margin-right: 2px;
-        }
-
-            .btn-group .btn:last-child {
-                margin-right: 0;
-            }
-
-        .badge {
-            font-size: 0.85em;
-            padding: 0.35em 0.65em;
-        }
-    </style>
-}

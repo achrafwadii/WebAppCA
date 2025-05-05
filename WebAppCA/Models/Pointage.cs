@@ -36,23 +36,7 @@ namespace WebAppCA.Models
         public virtual PointAcces PointAcces { get; set; }
     }
 
-    public class Utilisateur
-    {
-        public int Id { get; set; }
-
-        [Required]
-        [Display(Name = "Nom")]
-        public string Nom { get; set; }
-
-        [Required]
-        [Display(Name = "Prénom")]
-        public string Prenom { get; set; }
-
-        [Display(Name = "Nom complet")]
-        public string NomComplet => $"{Prenom} {Nom}";
-
-        // Autres propriétés comme email, département, etc.
-    }
+    
 
     public class PointAcces
     {

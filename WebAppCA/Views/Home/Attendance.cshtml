@@ -69,7 +69,7 @@
                             foreach (var pointage in Model)
                             {
                                 <tr>
-                                    <td>@pointage.Utilisateur.NomComplet</td>
+                                    <td>@pointage.Utilisateur.FullName</td>
                                     <td>@pointage.Date.ToString("dd/MM/yyyy")</td>
                                     <td>@pointage.HeureEntree.ToString("HH:mm")</td>
                                     <td>@(pointage.HeureSortie?.ToString("HH:mm") ?? "-")</td>

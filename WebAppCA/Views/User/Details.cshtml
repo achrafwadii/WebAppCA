@@ -1,4 +1,4 @@
-﻿@model WebAppCA.Models.UserInfoModel
+﻿@model WebAppCA.Models.Utilisateur
 @{
     ViewData["Title"] = $"Détails de l'utilisateur - {Model.FullName}";
 }
@@ -10,7 +10,7 @@
             <a asp-controller="User" asp-action="Index" class="btn btn-outline-secondary me-2">
                 <i class="bi bi-arrow-left"></i> Retour à la liste
             </a>
-            <a asp-controller="User" asp-action="Edit" asp-route-id="@Model.UserID" class="btn btn-primary">
+            <a asp-controller="User" asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">
                 <i class="bi bi-pencil"></i> Modifier
             </a>
         </div>
@@ -45,7 +45,7 @@
 
                     <div class="mb-3">
                         <label class="form-label text-muted">Téléphone</label>
-                        <p class="form-control-plaintext">@Model.Phone</p>
+                        <p class="form-control-plaintext">@Model.Telephone</p>
                     </div>
 
                     <div class="mb-3">
@@ -64,7 +64,7 @@
                 <div class="card-body">
                     <div class="mb-3">
                         <label class="form-label text-muted">Département</label>
-                        <p class="form-control-plaintext">@Model.Department</p>
+                        <p class="form-control-plaintext">@Model.Departement</p>
                     </div>
 
                     <div class="mb-3">
@@ -169,7 +169,7 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <form asp-controller="User" asp-action="AssignAccess" method="post">
-                <input type="hidden" name="userId" value="@Model.UserID" />
+                <input type="hidden" name="userId" value="@Model.Id" />
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-6">
@@ -229,7 +229,7 @@
                                     </div>
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="doorIds" value="3" id="door3"
-                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(3) ? "checked" : "")>
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(2) ? "checked" : "")>
                                         <label class="form-check-label" for="door3">
                                             Porte #3 (Salle serveurs)
                                         </label>
@@ -238,21 +238,21 @@
                                 <div class="col-6">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="doorIds" value="4" id="door4"
-                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(4) ? "checked" : "")>
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(3) ? "checked" : "")>
                                         <label class="form-check-label" for="door4">
                                             Porte #4 (Entrepôt)
                                         </label>
                                     </div>
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="doorIds" value="5" id="door5"
-                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(5) ? "checked" : "")>
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(4) ? "checked" : "")>
                                         <label class="form-check-label" for="door5">
                                             Porte #5 (Parking)
                                         </label>
                                     </div>
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="doorIds" value="6" id="door6"
-                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(6) ? "checked" : "")>
+                                        @(Model.AccessibleDoors != null && Model.AccessibleDoors.Contains(5) ? "checked" : "")>
                                         <label class="form-check-label" for="door6">
                                             Porte #6 (Salle de réunion)
                                         </label>

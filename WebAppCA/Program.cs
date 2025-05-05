@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using WebAppCA.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using WebAppCA.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +22,7 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
+builder.Services.AddScoped<UtilisateurRepository>();
 
 // Configuration gRPC
 // Important: AddGrpcServices doit être appelé AVANT d'ajouter ConnectSvc

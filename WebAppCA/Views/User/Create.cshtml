@@ -1,4 +1,4 @@
-﻿@model WebAppCA.Models.UserInfoModel
+﻿@model WebAppCA.Models.Utilisateur
 @{
     ViewData["Title"] = "Ajouter un utilisateur - TimeTrack";
 }
@@ -35,52 +35,57 @@
                     </div>
                     <div class="col-md-5">
                         <div class="mb-3">
-                            <label asp-for="FirstName" class="fw-bold form-label">• Prénom</label>
-                            <input asp-for="FirstName" class="form-control" />
-                            <span asp-validation-for="FirstName" class="text-danger"></span>
+                            <label asp-for="Prenom" class="fw-bold form-label">• Prénom</label>
+                            <input asp-for="Prenom" class="form-control" />
+                            <span asp-validation-for="Prenom" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
-                            <label class="fw-bold form-label">• ID</label>
-                            <input asp-for="UserID" class="form-control" placeholder="2" />
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="fw-bold form-label">• Groupe</label>
-                            <select class="form-select">
-                                <option selected>Tous les Utilisateurs</option>
-                                <option>Administrateurs</option>
-                                <option>Managers</option>
-                                <option>Employés</option>
+                            <label asp-for="UserType" class="fw-bold form-label">• Type d'utilisateur</label>
+                            <select asp-for="UserType" class="form-select">
+                                <option value="Admin">Administrateur</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Utilisateur">Utilisateur</option>
                             </select>
+                            <span asp-validation-for="UserType" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
                             <label class="fw-bold form-label">• Période</label>
-                            <div class="d-flex align-items-center">
-                                <input type="date" class="form-control" value="2001-01-01" />
-                                <input type="time" class="form-control mx-2" value="00:00" />
-                                <span class="mx-2">~</span>
-                                <input type="date" class="form-control" value="2037-12-31" />
-                                <input type="time" class="form-control ms-2" value="23:59" />
-                                <button type="button" class="btn btn-outline-secondary ms-2">
-                                    <i class="bi bi-calendar"></i>
-                                </button>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="form-label">Date début</label>
+                                    <input asp-for="StartDate" type="date" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Heure début</label>
+                                    <input asp-for="StartTime" type="time" class="form-control" />
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Date fin</label>
+                                    <input asp-for="EndDate" type="date" class="form-control" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Heure fin</label>
+                                    <input asp-for="EndTime" type="time" class="form-control" />
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="col-md-5">
                         <div class="mb-3">
-                            <label asp-for="LastName" class="fw-bold form-label">• Nom</label>
-                            <input asp-for="LastName" class="form-control" />
-                            <span asp-validation-for="LastName" class="text-danger"></span>
+                            <label asp-for="Nom" class="fw-bold form-label">• Nom</label>
+                            <input asp-for="Nom" class="form-control" />
+                            <span asp-validation-for="Nom" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
-                            <label asp-for="Department" class="fw-bold form-label">• Département</label>
-                            <input asp-for="Department" class="form-control" />
-                            <span asp-validation-for="Department" class="text-danger"></span>
+                            <label asp-for="Departement" class="fw-bold form-label">• Département</label>
+                            <input asp-for="Departement" class="form-control" />
+                            <span asp-validation-for="Departement" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
@@ -90,17 +95,34 @@
                         </div>
 
                         <div class="mb-3">
-                            <label asp-for="Phone" class="fw-bold form-label">• Téléphone</label>
-                            <input asp-for="Phone" class="form-control" />
-                            <span asp-validation-for="Phone" class="text-danger"></span>
+                            <label asp-for="Telephone" class="fw-bold form-label">• Téléphone</label>
+                            <input asp-for="Telephone" class="form-control" />
+                            <span asp-validation-for="Telephone" class="text-danger"></span>
                         </div>
 
                         <div class="mb-3">
                             <label asp-for="Status" class="fw-bold form-label">• Statut</label>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="statusSwitch" checked>
+                                <input class="form-check-input" type="checkbox" id="statusSwitch" name="statusSwitch" checked>
                                 <label class="form-check-label" for="statusSwitch">Activé</label>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="Email" class="fw-bold form-label">• Email</label>
+                            <input asp-for="Email" class="form-control" type="email" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label asp-for="BadgeNumber" class="fw-bold form-label">• Numéro de badge</label>
+                            <input asp-for="BadgeNumber" class="form-control" />
+                            <span asp-validation-for="BadgeNumber" class="text-danger"></span>
                         </div>
                     </div>
                 </div>
@@ -116,29 +138,19 @@
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label class="fw-bold form-label">• Groupe d'Accès</label>
-                            <select class="form-select">
-                                <option selected>Sélectionner le groupe d'accès</option>
-                                <option>Accès total</option>
-                                <option>Accès limité</option>
-                                <option>Visiteur</option>
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="fw-bold form-label">• Opérateur BioStar</label>
-                            <select class="form-select">
-                                <option selected>Jamais</option>
-                                <option>Toujours</option>
-                                <option>Planifié</option>
+                            <label asp-for="BioStarOperator" class="fw-bold form-label">• Opérateur BioStar</label>
+                            <select asp-for="BioStarOperator" class="form-select">
+                                <option value="Jamais">Jamais</option>
+                                <option value="Toujours">Toujours</option>
+                                <option value="Planifié">Planifié</option>
                             </select>
                         </div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="mb-3">
-                            <label class="fw-bold form-label">• Adresse IP de l'utilisateur</label>
-                            <input type="text" class="form-control" placeholder="192.168.1.1" />
+                            <label asp-for="IPAddress" class="fw-bold form-label">• Adresse IP de l'utilisateur</label>
+                            <input asp-for="IPAddress" class="form-control" placeholder="192.168.1.1" />
                         </div>
                     </div>
                 </div>
@@ -158,15 +170,15 @@
                                 <div class="form-check me-2">
                                     <input class="form-check-input" type="checkbox" id="pinCheck">
                                 </div>
-                                <label class="fw-bold form-label mb-0">• PIN</label>
+                                <label asp-for="PIN" class="fw-bold form-label mb-0">• PIN</label>
                             </div>
-                            <input type="password" class="form-control mt-2" />
+                            <input asp-for="PIN" type="password" class="form-control mt-2" />
                         </div>
 
                         <div class="mb-3">
                             <label class="fw-bold form-label">• Mode d'authentification</label>
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="authModeSwitch" checked>
+                                <input class="form-check-input" type="checkbox" id="authModeSwitch" name="authModeSwitch" checked>
                                 <label class="form-check-label" for="authModeSwitch">Utiliser le mode par défaut de l'équipement</label>
                             </div>
                         </div>
@@ -193,9 +205,9 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="fw-bold form-label">• Niveau de sécurité 1:1</label>
+                            <label asp-for="SecurityLevel" class="fw-bold form-label">• Niveau de sécurité 1:1</label>
                             <div class="d-flex align-items-center">
-                                <input type="range" class="form-range w-75" min="0" max="10" step="1" value="5" id="securityLevel">
+                                <input asp-for="SecurityLevel" type="range" class="form-range w-75" min="0" max="10" step="1" value="5">
                                 <span class="ms-2">Utiliser le mode par défaut de l'équipement</span>
                             </div>
                         </div>
@@ -205,7 +217,7 @@
         </div>
 
         <div class="d-flex justify-content-end gap-2 mb-4">
-            <button type="button" class="btn btn-secondary">Annuler</button>
+            <a asp-controller="User" asp-action="Index" class="btn btn-secondary">Annuler</a>
             <button type="submit" class="btn btn-primary">Enregistrer</button>
         </div>
     </form>
@@ -234,6 +246,19 @@
             if (btnAddPhoto) {
                 btnAddPhoto.addEventListener('click', function() {
                     alert('Fonctionnalité d\'ajout de photo à implémenter');
+                });
+            }
+            
+            // Activer/désactiver le champ PIN
+            const pinCheck = document.getElementById('pinCheck');
+            const pinInput = document.getElementById('PIN');
+            if (pinCheck && pinInput) {
+                pinInput.disabled = !pinCheck.checked;
+                pinCheck.addEventListener('change', function() {
+                    pinInput.disabled = !this.checked;
+                    if (!this.checked) {
+                        pinInput.value = '';
+                    }
                 });
             }
         });

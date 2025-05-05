@@ -3,34 +3,47 @@ using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using WebAppCA.Models;
+using WebAppCA.Repositories;
 
 namespace WebAppCA.Controllers
 {
     public class UserController : Controller
     {
+        private readonly UtilisateurRepository _repository;
+
+        public UserController(UtilisateurRepository repository)
+        {
+            _repository = repository;
+        }
+
         // GET: Liste des utilisateurs
-        public IActionResult Index()
+        public async Task<IActionResult> Index(string searchTerm = null, string status = null, string departement = null)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            // Ceci devrait être remplacé par une récupération réelle depuis la base de données
-            var users = GetSampleUsers();
+            // Récupérer les utilisateurs depuis la base de données
+            var users = await _repository.SearchAsync(searchTerm, status, departement);
+
+            // Récupérer la liste des départements pour le filtre
+            ViewBag.Departments = await _repository.GetDepartmentsAsync();
+
             return View(users);
         }
 
         // GET: Détails d'un utilisateur
-        public IActionResult Details(int id)
+        public async Task<IActionResult> Details(int id)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            var user = GetSampleUsers().FirstOrDefault(u => u.UserID == id);
+            var user = await _repository.GetByIdAsync(id);
             if (user == null)
             {
                 return NotFound();
@@ -47,12 +60,16 @@ namespace WebAppCA.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var model = new UserInfoModel
+            var model = new Utilisateur
             {
                 Status = "Actif",
                 CreatedAt = DateTime.Now,
-                AccessGroups = new List<string>(),
-                AccessibleDoors = new List<int>()
+                StartDate = DateTime.Now,
+                EndDate = new DateTime(2037, 12, 31),
+                SecurityLevel = 5,
+                BioStarOperator = "Jamais",
+                StartTime = TimeSpan.Parse("00:00"),
+                EndTime = TimeSpan.Parse("23:59")
             };
 
             return View(model);
@@ -61,7 +78,7 @@ namespace WebAppCA.Controllers
         // POST: Création d'un utilisateur
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Create(UserInfoModel model, IFormCollection form)
+        public async Task<IActionResult> Create(Utilisateur model, IFormCollection form)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
@@ -70,22 +87,13 @@ namespace WebAppCA.Controllers
 
             // Récupérer les valeurs des switches et cases à cocher
             model.Status = form["statusSwitch"] == "on" ? "Actif" : "Inactif";
-
-            // Traiter les groupes d'accès sélectionnés (à adapter selon votre UI)
-            var selectedGroups = form["accessGroups"].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
-            model.AccessGroups = selectedGroups.ToList();
-
-            // Traiter les portes accessibles
-            var selectedDoors = form.Keys
-                .Where(k => k.StartsWith("door_") && form[k] == "on")
-                .Select(k => int.Parse(k.Replace("door_", "")))
-                .ToList();
-            model.AccessibleDoors = selectedDoors;
+            model.UseCustomAuthMode = form["authModeSwitch"] != "on"; // Inverser car le switch est "utiliser le mode par défaut"
 
             if (ModelState.IsValid)
             {
-                // Dans une implémentation réelle, vous enregistreriez l'utilisateur dans la base de données
+                // Enregistrer l'utilisateur dans la base de données
                 model.CreatedAt = DateTime.Now;
+                await _repository.AddAsync(model);
 
                 TempData["Message"] = "Utilisateur créé avec succès";
                 return RedirectToAction(nameof(Index));
@@ -95,14 +103,14 @@ namespace WebAppCA.Controllers
         }
 
         // GET: Formulaire d'édition d'un utilisateur
-        public IActionResult Edit(int id)
+        public async Task<IActionResult> Edit(int id)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            var user = GetSampleUsers().FirstOrDefault(u => u.UserID == id);
+            var user = await _repository.GetByIdAsync(id);
             if (user == null)
             {
                 return NotFound();
@@ -114,35 +122,25 @@ namespace WebAppCA.Controllers
         // POST: Mise à jour d'un utilisateur
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Edit(int id, UserInfoModel model, IFormCollection form)
+        public async Task<IActionResult> Edit(int id, Utilisateur model, IFormCollection form)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            if (id != model.UserID)
+            if (id != model.Id)
             {
                 return NotFound();
             }
 
             // Récupérer les valeurs des switches et cases à cocher
             model.Status = form["statusSwitch"] == "on" ? "Actif" : "Inactif";
-
-            // Traiter les groupes d'accès sélectionnés
-            var selectedGroups = form["accessGroups"].ToString().Split(',', StringSplitOptions.RemoveEmptyEntries);
-            model.AccessGroups = selectedGroups.ToList();
-
-            // Traiter les portes accessibles
-            var selectedDoors = form.Keys
-                .Where(k => k.StartsWith("door_") && form[k] == "on")
-                .Select(k => int.Parse(k.Replace("door_", "")))
-                .ToList();
-            model.AccessibleDoors = selectedDoors;
+            model.UseCustomAuthMode = form["authModeSwitch"] != "on"; // Inverser car le switch est "utiliser le mode par défaut"
 
             if (ModelState.IsValid)
             {
-                // Dans une implémentation réelle, vous mettriez à jour l'utilisateur dans la base de données
+                await _repository.UpdateAsync(model);
 
                 TempData["Message"] = "Utilisateur mis à jour avec succès";
                 return RedirectToAction(nameof(Index));
@@ -154,14 +152,14 @@ namespace WebAppCA.Controllers
         // POST: Suppression d'un utilisateur
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            // Dans une implémentation réelle, vous supprimeriez l'utilisateur de la base de données
+            await _repository.DeleteAsync(id);
 
             TempData["Message"] = "Utilisateur supprimé avec succès";
             return RedirectToAction(nameof(Index));
@@ -169,79 +167,18 @@ namespace WebAppCA.Controllers
 
         // POST: Attribution de droits d'accès aux portes
         [HttpPost]
-        public IActionResult AssignAccess(int userId, List<int> doorIds)
+        public async Task<IActionResult> AssignAccess(int userId, List<int> doorIds)
         {
             if (HttpContext.Session.GetString("IsAuthenticated") != "true")
             {
                 return RedirectToAction("Login", "Account");
             }
 
-            // Dans une implémentation réelle, vous attribueriez les droits d'accès dans la base de données
+            // Dans une implémentation réelle, vous attribueriez les droits d'accès dans une table de relation
+            // Pour l'instant, on renvoie simplement vers la page de détails
 
             TempData["Message"] = "Droits d'accès modifiés avec succès";
             return RedirectToAction(nameof(Details), new { id = userId });
-        }
-
-        // Méthode de démo pour générer des utilisateurs d'exemple
-        private List<UserInfoModel> GetSampleUsers()
-        {
-            return new List<UserInfoModel>
-            {
-                new UserInfoModel
-                {
-                    UserID = 1,
-                    Username = "admin",
-                    FirstName = "Pierre",
-                    LastName = "Dupont",
-                    Email = "admin@timetrack.com",
-                    Phone = "01 23 45 67 89",
-                    Department = "IT",
-                    Position = "Administrateur système",
-                    BadgeNumber = "A12345",
-                    UserType = "Admin",
-                    Status = "Actif",
-                    CreatedAt = DateTime.Now.AddMonths(-6),
-                    LastLogin = DateTime.Now.AddDays(-1),
-                    AccessGroups = new List<string> { "Administrateurs", "Gestionnaires" },
-                    AccessibleDoors = new List<int> { 1, 2, 3, 4 }
-                },
-                new UserInfoModel
-                {
-                    UserID = 2,
-                    Username = "m.martin",
-                    FirstName = "Marie",
-                    LastName = "Martin",
-                    Email = "m.martin@timetrack.com",
-                    Phone = "01 23 45 67 90",
-                    Department = "RH",
-                    Position = "Directrice RH",
-                    BadgeNumber = "B67890",
-                    UserType = "Manager",
-                    Status = "Actif",
-                    CreatedAt = DateTime.Now.AddMonths(-3),
-                    LastLogin = DateTime.Now.AddDays(-3),
-                    AccessGroups = new List<string> { "Gestionnaires", "RH" },
-                    AccessibleDoors = new List<int> { 1, 2 }
-                },
-                new UserInfoModel
-                {
-                    UserID = 3,
-                    Username = "j.durand",
-                    FirstName = "Jean",
-                    LastName = "Durand",
-                    Email = "j.durand@timetrack.com",
-                    Phone = "01 23 45 67 91",
-                    Department = "Commercial",
-                    Position = "Vendeur",
-                    BadgeNumber = "C45678",
-                    UserType = "Utilisateur",
-                    Status = "Actif",
-                    CreatedAt = DateTime.Now.AddMonths(-1),
-                    LastLogin = DateTime.Now.AddHours(-12),
-                    AccessGroups = new List<string> { "Commerciaux" },
-                    AccessibleDoors = new List<int> { 1 }
-                }
-            };
         }
     }
 }

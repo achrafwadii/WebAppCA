@@ -28,7 +28,7 @@ namespace WebAppCA.Controllers
                 .Select(u => new SelectListItem
                 {
                     Value = u.Id.ToString(),
-                    Text = u.NomComplet
+                    Text = u.FullName
                 })
                 .ToListAsync();
 
@@ -187,7 +187,7 @@ namespace WebAppCA.Controllers
         {
             var utilisateurs = await _context.Utilisateurs
                 .OrderBy(u => u.Nom)
-                .Select(u => new { id = u.Id, nom = u.NomComplet })
+                .Select(u => new { id = u.Id, nom = u.FullName })
                 .ToListAsync();
 
             return Json(utilisateurs);
@@ -211,7 +211,7 @@ namespace WebAppCA.Controllers
                 .Select(u => new SelectListItem
                 {
                     Value = u.Id.ToString(),
-                    Text = u.NomComplet
+                    Text = u.FullName
                 })
                 .ToList();
 

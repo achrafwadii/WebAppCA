@@ -35,6 +35,12 @@ namespace WebAppCA.Data
                 .WithMany()
                 .HasForeignKey(p => p.UtilisateurId)
                 .OnDelete(DeleteBehavior.Restrict);
+            // Configuration de la table Utilisateurs
+            modelBuilder.Entity<Utilisateur>()
+                .ToTable("Utilisateurs");
+            modelBuilder.Entity<Utilisateur>()
+                .Property(u => u.CreatedAt)
+                .HasDefaultValueSql("GETDATE()");
 
             modelBuilder.Entity<Pointage>()
                 .HasOne(p => p.PointAcces)
