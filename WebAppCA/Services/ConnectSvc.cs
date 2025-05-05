@@ -111,7 +111,7 @@ namespace WebAppCA.Services
             {
                 _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port} avec UseSSL={UseSSL}",
                     connectInfo.IPAddr, connectInfo.Port, connectInfo.UseSSL);
-
+                                                                            
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
                 var response = _connectClient.Connect(request);
 

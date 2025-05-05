@@ -22,8 +22,9 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
+builder.Services.AddScoped<DoorService>();
 builder.Services.AddScoped<UtilisateurRepository>();
-
+builder.Services.AddScoped<DashboardService>();
 // Configuration gRPC
 // Important: AddGrpcServices doit être appelé AVANT d'ajouter ConnectSvc
 builder.Services.AddGrpcServices(builder.Configuration);

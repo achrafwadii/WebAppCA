@@ -7,6 +7,7 @@ namespace WebAppCA.Models
     {
         [Key]
         public int DeviceId { get; set; }
+        public int DeviceID { get; internal set; }
 
         // Make these nullable where appropriate
         [StringLength(100)]

@@ -1,14 +1,16 @@
-﻿@{
+﻿@model WebAppCA.Models.DashboardViewModel
+@{
     ViewData["Title"] = "Tableau de bord - TimeTrack";
+    var activeTimeFrame = ViewBag.ActiveTimeFrame ?? "today";
 }
 
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-speedometer2"></i> Tableau de bord</h2>
         <div class="btn-group">
-            <button class="btn btn-outline-secondary">Aujourd'hui</button>
-            <button class="btn btn-outline-secondary">Cette semaine</button>
-            <button class="btn btn-outline-secondary">Ce mois</button>
+            <a asp-action="Dashboard" asp-route-timeFrame="today" class="btn @(activeTimeFrame == "today" ? "btn-primary" : "btn-outline-secondary")">Aujourd'hui</a>
+            <a asp-action="Dashboard" asp-route-timeFrame="week" class="btn @(activeTimeFrame == "week" ? "btn-primary" : "btn-outline-secondary")">Cette semaine</a>
+            <a asp-action="Dashboard" asp-route-timeFrame="month" class="btn @(activeTimeFrame == "month" ? "btn-primary" : "btn-outline-secondary")">Ce mois</a>
         </div>
     </div>
 
@@ -19,7 +21,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="text-muted">Utilisateurs</h6>
-                            <h3>0</h3>
+                            <h3>@Model.UserCount</h3>
                         </div>
                         <div class="bg-primary bg-opacity-10 p-3 rounded">
                             <i class="bi bi-people text-primary" style="font-size: 1.5rem;"></i>
@@ -35,7 +37,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="text-muted">Équipements</h6>
-                            <h3>0</h3>
+                            <h3>@Model.DeviceCount</h3>
                         </div>
                         <div class="bg-success bg-opacity-10 p-3 rounded">
                             <i class="bi bi-pc-display text-success" style="font-size: 1.5rem;"></i>
@@ -51,7 +53,7 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="text-muted">Portes</h6>
-                            <h3>0</h3>
+                            <h3>@Model.DoorCount</h3>
                         </div>
                         <div class="bg-warning bg-opacity-10 p-3 rounded">
                             <i class="bi bi-door-open text-warning" style="font-size: 1.5rem;"></i>
@@ -66,8 +68,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h6 class="text-muted">Accès aujourd'hui</h6>
-                            <h3>0</h3>
+                            <h6 class="text-muted">Accès @(activeTimeFrame == "today" ? "aujourd'hui" : activeTimeFrame == "week" ? "cette semaine" : "ce mois")</h6>
+                            <h3>@Model.TodayAccessCount</h3>
                         </div>
                         <div class="bg-info bg-opacity-10 p-3 rounded">
                             <i class="bi bi-person-check text-info" style="font-size: 1.5rem;"></i>
@@ -85,9 +87,47 @@
                     <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Activité récente</h5>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Aucune donnée d'activité disponible
-                    </div>
+                    @if (Model.RecentActivities.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Utilisateur</th>
+                                        <th>Point d'accès</th>
+                                        <th>Type</th>
+                                        <th>Date/Heure</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var activity in Model.RecentActivities)
+                                    {
+                                        <tr>
+                                            <td>@activity.UserName</td>
+                                            <td>@activity.AccessPoint</td>
+                                            <td>
+                                                @if (activity.EventType == "Entrée")
+                                                {
+                                                    <span class="badge bg-success">Entrée</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-danger">Sortie</span>
+                                                }
+                                            </td>
+                                            <td>@activity.Timestamp.ToString("dd/MM/yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Aucune donnée d'activité disponible
+                        </div>
+                    }
                 </div>
             </div>
         </div>
@@ -98,9 +138,28 @@
                     <h5 class="mb-0"><i class="bi bi-alarm"></i> Événements récents</h5>
                 </div>
                 <div class="card-body">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> Aucun événement récent
-                    </div>
+                    @if (Model.RecentEvents.Any())
+                    {
+                        <div class="list-group">
+                            @foreach (var evt in Model.RecentEvents)
+                            {
+                                <div class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">@evt.EventType</h6>
+                                        <small>@evt.Timestamp.ToString("HH:mm")</small>
+                                    </div>
+                                    <p class="mb-1">@evt.Description</p>
+                                    <small class="text-muted">@evt.Timestamp.ToString("dd/MM/yyyy")</small>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> Aucun événement récent
+                        </div>
+                    }
                 </div>
             </div>
         </div>

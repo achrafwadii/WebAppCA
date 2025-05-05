@@ -12,16 +12,49 @@ namespace WebAppCA.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly DeviceDbService _deviceService;
         private readonly ConnectSvc _connectSvc;
+        // Dans HomeController.cs, ajouter cette méthode mise à jour
 
+        private readonly DashboardService _dashboardService;
+
+        // Modifier le constructeur pour injecter le DashboardService
         public HomeController(
             ILogger<HomeController> logger,
             DeviceDbService deviceService,
-            ConnectSvc connectSvc)
+            ConnectSvc connectSvc,
+            DashboardService dashboardService)
         {
             _logger = logger;
             _deviceService = deviceService;
             _connectSvc = connectSvc;
+            _dashboardService = dashboardService;
         }
+
+        public async Task<IActionResult> Dashboard(string timeFrame = "today")
+        {
+            try
+            {
+                // Valider le timeFrame
+                if (timeFrame != "today" && timeFrame != "week" && timeFrame != "month")
+                {
+                    timeFrame = "today";
+                }
+
+                // Récupérer les données du tableau de bord
+                var dashboardData = await _dashboardService.GetDashboardDataAsync(timeFrame);
+
+                // Définir le timeFrame actif pour l'affichage dans la vue
+                ViewBag.ActiveTimeFrame = timeFrame;
+
+                return View(dashboardData);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du chargement du tableau de bord");
+                TempData["Error"] = "Une erreur s'est produite lors du chargement du tableau de bord.";
+                return View(new DashboardViewModel());
+            }
+        }
+        
 
         public IActionResult Index()
         {
@@ -44,10 +77,10 @@ namespace WebAppCA.Controllers
 
                     deviceInfoModels.Add(new DeviceInfoModel
                     {
-                        DeviceID = device.DeviceId,
+                        DeviceID = (int)device.DeviceID,
                         DeviceName = device.Name,
                         IPAddress = device.IPAddress,
-                        ConnectionStatus = connectedDevice != null ? "Connecté" : "Déconnecté"
+                        Status = connectedDevice != null ? "Connecté" : "Déconnecté"
                     });
                 }
             }
@@ -60,10 +93,10 @@ namespace WebAppCA.Controllers
                 {
                     deviceInfoModels.Add(new DeviceInfoModel
                     {
-                        DeviceID = device.DeviceId,
+                        DeviceID = (int)device.DeviceID,
                         DeviceName = device.Name,
                         IPAddress = device.IPAddress,
-                        ConnectionStatus = "Statut inconnu"
+                        Status = "Statut inconnu"
                     });
                 }
 
@@ -90,11 +123,6 @@ namespace WebAppCA.Controllers
         }
 
         public IActionResult Help()
-        {
-            return View();
-        }
-
-        public IActionResult Dashboard()
         {
             return View();
         }

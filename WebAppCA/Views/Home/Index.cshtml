@@ -45,8 +45,8 @@
                                     <td>@device.DeviceID</td>
                                     <td>@device.IPAddress</td>
                                     <td>
-                                        <span class="badge @(device.ConnectionStatus == "Connecté" ? "bg-success" : "bg-secondary")">
-                                            @device.ConnectionStatus
+                                        <span class="badge @(device.Status == "Connecté" ? "bg-success" : "bg-secondary")">
+                                            @device.Status
                                         </span>
                                     </td>
                                     <td>
