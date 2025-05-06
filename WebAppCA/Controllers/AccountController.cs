@@ -33,7 +33,7 @@ public class AccountController : Controller
 
         try
         {
-            _userService.Register(new User { Username = username, Email = email }, password);
+            _userService.Register(new Useer { Username = username, Email = email }, password);
             TempData["SuccessMessage"] = "Inscription réussie!";
             return RedirectToAction("Login");
         }

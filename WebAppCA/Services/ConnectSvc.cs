@@ -22,6 +22,8 @@ namespace WebAppCA.Services
             {
                 try
                 {
+                    // Initialiser à la fois le client et la propriété Channel
+                    Channel = channel;
                     _connectClient = new Connect.Connect.ConnectClient(channel);
                     _isConnected = true;
                     _logger?.LogInformation("ConnectSvc initialisé avec Grpc.Core.Channel");
@@ -47,6 +49,8 @@ namespace WebAppCA.Services
             {
                 try
                 {
+                    // Initialiser à la fois le client et la propriété Channel
+                    Channel = channel;
                     _connectClient = new Connect.Connect.ConnectClient(channel);
                     _isConnected = true;
                     _logger?.LogInformation("ConnectSvc initialisé avec GrpcChannel");
@@ -73,7 +77,8 @@ namespace WebAppCA.Services
 
         public bool IsConnected => _isConnected && _connectClient != null;
 
-        public ChannelBase Channel { get; internal set; }
+        // La propriété Channel est utilisée par d'autres services
+        public ChannelBase Channel { get; private set; }
 
         private bool EnsureConnectClient()
         {
@@ -107,13 +112,14 @@ namespace WebAppCA.Services
 
         public uint Connect(Connect.ConnectInfo connectInfo)
         {
-            EnsureConnectClient();
+            if (!EnsureConnectClient())
+                return 0;
 
             try
             {
                 _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port} avec UseSSL={UseSSL}",
                     connectInfo.IPAddr, connectInfo.Port, connectInfo.UseSSL);
-                                                                            
+
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
                 var response = _connectClient.Connect(request);
 
@@ -138,11 +144,10 @@ namespace WebAppCA.Services
             }
         }
 
-
-
         public RepeatedField<Connect.SearchDeviceInfo> SearchDevice()
         {
-            EnsureConnectClient();
+            if (!EnsureConnectClient())
+                return new RepeatedField<Connect.SearchDeviceInfo>();
 
             try
             {

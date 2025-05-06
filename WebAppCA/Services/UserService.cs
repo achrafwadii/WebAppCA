@@ -9,14 +9,14 @@ namespace WebAppCA.Services
     public class UserService
     {
         private const string UsersFile = "users.json";
-        private List<User> _users;
+        private List<Useer> _users;
 
         public UserService()
         {
             LoadUsers();
         }
 
-        public void Register(User newUser, string password)
+        public void Register(Useer newUser, string password)
         {
             if (_users.Any(u => u.Username == newUser.Username))
             {
@@ -28,7 +28,7 @@ namespace WebAppCA.Services
             SaveUsers();
         }
 
-        public User Login(string username, string password)
+        public Useer Login(string username, string password)
         {
             var user = _users.FirstOrDefault(u => u.Username == username);
             if (user == null || user.PasswordHash != HashPassword(password))
@@ -43,11 +43,11 @@ namespace WebAppCA.Services
             if (File.Exists(UsersFile))
             {
                 var json = File.ReadAllText(UsersFile);
-                _users = JsonSerializer.Deserialize<List<User>>(json) ?? new List<User>();
+                _users = JsonSerializer.Deserialize<List<Useer>>(json) ?? new List<Useer>();
             }
             else
             {
-                _users = new List<User>();
+                _users = new List<Useer>();
             }
         }
 

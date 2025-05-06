@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using WebAppCA.Repositories;
+using Grpc.Net.Client;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +30,11 @@ builder.Services.AddScoped<DashboardService>();
 // Configuration gRPC
 // Important: AddGrpcServices doit être appelé AVANT d'ajouter ConnectSvc
 builder.Services.AddGrpcServices(builder.Configuration);
-builder.Services.AddScoped<ConnectSvc>();
+builder.Services.AddSingleton<ConnectSvc>(sp => {
+    var logger = sp.GetRequiredService<ILogger<ConnectSvc>>();
+    var channel = GrpcChannel.ForAddress("https://localhost:5001");
+    return new ConnectSvc(channel, logger);
+});
 
 // Configuration de la base de données
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
