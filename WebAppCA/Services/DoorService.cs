@@ -6,9 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using WebAppCA.Models;
-using WebAppCA.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace WebAppCA.Services
 {
@@ -16,171 +13,177 @@ namespace WebAppCA.Services
     {
         private readonly ILogger<DoorService> _logger;
         private readonly ConnectSvc _connectSvc;
-        private readonly ApplicationDbContext _context;
 
-        public DoorService(ILogger<DoorService> logger, ConnectSvc connectSvc, ApplicationDbContext context)
+        public DoorService(ILogger<DoorService> logger, ConnectSvc connectSvc)
         {
             _logger = logger;
             _connectSvc = connectSvc;
-            _context = context;
         }
 
-        // Récupérer la liste des portes d'un appareil
-        public async Task<List<DoorInfoModel>> GetDoorsAsync(int deviceID)
+        public async Task<RepeatedField<DoorInfo>> GetListAsync(uint deviceID)
         {
             try
             {
-                // Create the client using the channel's CreateCallInvoker method
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
-                var request = new GetListRequest { DeviceID = (uint)deviceID };
+                var request = new GetListRequest { DeviceID = deviceID };
                 var response = await client.GetListAsync(request);
-
-                var doors = response.Doors.Select(d => new DoorInfoModel
-                {
-                    DoorID = d.DoorID,
-                    Name = d.Name,
-                    DeviceID = d.EntryDeviceID,
-                    RelayPort = (byte)d.Relay.Port,
-                    DeviceName = GetDeviceNameById(d.EntryDeviceID),
-                    Status = "Inconnu" // Par défaut, on mettra à jour avec GetDoorStatusAsync
-                }).ToList();
-
-                // Mise à jour des statuts
-                await UpdateDoorStatusesAsync(doors, deviceID);
-
-                return doors;
+                return response.Doors;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erreur lors de la récupération des portes pour l'appareil {DeviceID}", deviceID);
-                return new List<DoorInfoModel>();
+                return new RepeatedField<DoorInfo>();
             }
         }
 
-        // Mise à jour des statuts des portes
-        private async Task UpdateDoorStatusesAsync(List<DoorInfoModel> doors, int deviceID)
+        public async Task<RepeatedField<Door.Status>> GetStatusAsync(uint deviceID)
         {
             try
             {
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
-                var request = new GetStatusRequest { DeviceID = (uint)deviceID };
+                var request = new GetStatusRequest { DeviceID = deviceID };
                 var response = await client.GetStatusAsync(request);
-
-                foreach (var door in doors)
-                {
-                    var status = response.Status.FirstOrDefault(s => s.DoorID == door.DoorID);
-                    if (status != null)
-                    {
-                        door.Status = status.IsUnlocked ? "Déverrouillée" : "Verrouillée";
-                    }
-                }
+                return response.Status;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la récupération des statuts des portes");
+                _logger.LogError(ex, "Erreur lors de la récupération des statuts des portes pour l'appareil {DeviceID}", deviceID);
+                return new RepeatedField<Door.Status>();
             }
         }
 
-        // Ajouter une nouvelle porte
-        public async Task<bool> AddDoorAsync(AddDoorModel model)
+        public async Task<bool> AddAsync(uint deviceID, IEnumerable<DoorInfo> doors)
         {
             try
             {
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
-
-                var doorInfo = new DoorInfo
-                {
-                    DoorID = (uint)DateTime.Now.Ticks,
-                    Name = model.DoorName,
-                    EntryDeviceID = model.DeviceID,
-                    ExitDeviceID = model.DeviceID,
-                    Relay = new Relay { DeviceID = model.DeviceID, Port = (uint)model.PortNumber },
-                    Sensor = new Sensor { DeviceID = model.DeviceID, Port = 0 },
-                    Button = new ExitButton { DeviceID = model.DeviceID, Port = 0 },
-                    AutoLockTimeout = 5,
-                    HeldOpenTimeout = 30
-                };
-
-                var request = new AddRequest
-                {
-                    DeviceID = model.DeviceID
-                };
-                request.Doors.Add(doorInfo);
-
+                var request = new AddRequest { DeviceID = deviceID };
+                request.Doors.AddRange(doors);
                 await client.AddAsync(request);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de l'ajout de la porte");
+                _logger.LogError(ex, "Erreur lors de l'ajout des portes pour l'appareil {DeviceID}", deviceID);
                 return false;
             }
         }
 
-        // Supprimer une porte
-        public async Task<bool> DeleteDoorAsync(uint deviceID, uint doorID)
+        public async Task<bool> DeleteAsync(uint deviceID, IEnumerable<uint> doorIDs)
         {
             try
             {
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
-                var request = new DeleteRequest
-                {
-                    DeviceID = deviceID
-                };
-                request.DoorIDs.Add(doorID);
-
+                var request = new DeleteRequest { DeviceID = deviceID };
+                request.DoorIDs.AddRange(doorIDs);
                 await client.DeleteAsync(request);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la suppression de la porte {DoorID}", doorID);
+                _logger.LogError(ex, "Erreur lors de la suppression des portes pour l'appareil {DeviceID}", deviceID);
                 return false;
             }
         }
 
-        // Verrouiller/Déverrouiller une porte
-        public async Task<bool> ToggleDoorAsync(uint deviceID, uint doorID, bool unlock)
+        public async Task<bool> DeleteAllAsync(uint deviceID)
         {
             try
             {
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
-
-                if (unlock)
-                {
-                    var request = new UnlockRequest
-                    {
-                        DeviceID = deviceID,
-                        DoorFlag = (uint)DoorFlag.Operator
-                    };
-                    request.DoorIDs.Add(doorID);
-                    await client.UnlockAsync(request);
-                }
-                else
-                {
-                    var request = new LockRequest
-                    {
-                        DeviceID = deviceID,
-                        DoorFlag = (uint)DoorFlag.Operator
-                    };
-                    request.DoorIDs.Add(doorID);
-                    await client.LockAsync(request);
-                }
-
+                var request = new DeleteAllRequest { DeviceID = deviceID };
+                await client.DeleteAllAsync(request);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors du changement d'état de la porte {DoorID}", doorID);
+                _logger.LogError(ex, "Erreur lors de la suppression de toutes les portes pour l'appareil {DeviceID}", deviceID);
                 return false;
             }
         }
 
-        // Récupérer le nom d'un appareil par son ID
-        private string GetDeviceNameById(uint deviceID)
+        public async Task<bool> LockAsync(uint deviceID, IEnumerable<uint> doorIDs, Door.DoorFlag doorFlag = Door.DoorFlag.Operator)
         {
-            var device = _context.Devices.FirstOrDefault(d => d.DeviceID == deviceID);
-            return device?.Name ?? $"Appareil {deviceID}";
+            try
+            {
+                var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
+                var request = new LockRequest { DeviceID = deviceID, DoorFlag = (uint)doorFlag };
+                request.DoorIDs.AddRange(doorIDs);
+                await client.LockAsync(request);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du verrouillage des portes pour l'appareil {DeviceID}", deviceID);
+                return false;
+            }
+        }
+
+        public async Task<bool> UnlockAsync(uint deviceID, IEnumerable<uint> doorIDs, Door.DoorFlag doorFlag = Door.DoorFlag.Operator)
+        {
+            try
+            {
+                var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
+                var request = new UnlockRequest { DeviceID = deviceID, DoorFlag = (uint)doorFlag };
+                request.DoorIDs.AddRange(doorIDs);
+                await client.UnlockAsync(request);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du déverrouillage des portes pour l'appareil {DeviceID}", deviceID);
+                return false;
+            }
+        }
+
+        public async Task<bool> ReleaseAsync(uint deviceID, IEnumerable<uint> doorIDs, Door.DoorFlag doorFlag = Door.DoorFlag.Operator)
+        {
+            try
+            {
+                var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
+                var request = new ReleaseRequest { DeviceID = deviceID, DoorFlag = (uint)doorFlag };
+                request.DoorIDs.AddRange(doorIDs);
+                await client.ReleaseAsync(request);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la libération des portes pour l'appareil {DeviceID}", deviceID);
+                return false;
+            }
+        }
+
+        public async Task<bool> SetAlarmAsync(uint deviceID, IEnumerable<uint> doorIDs, Door.AlarmFlag alarmFlag)
+        {
+            try
+            {
+                var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
+                var request = new SetAlarmRequest { DeviceID = deviceID, AlarmFlag = (uint)alarmFlag };
+                request.DoorIDs.AddRange(doorIDs);
+                await client.SetAlarmAsync(request);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la définition d'alarme sur les portes pour l'appareil {DeviceID}", deviceID);
+                return false;
+            }
+        }
+
+        public static DoorInfo CreateDoorInfo(string name, uint doorID, uint deviceID, uint relayPort)
+        {
+            return new DoorInfo
+            {
+                DoorID = doorID,
+                Name = name,
+                EntryDeviceID = deviceID,
+                ExitDeviceID = deviceID,
+                Relay = new Relay { DeviceID = deviceID, Port = relayPort },
+                Sensor = new Sensor { DeviceID = deviceID, Port = 0 },
+                Button = new ExitButton { DeviceID = deviceID, Port = 0 },
+                AutoLockTimeout = 5,
+                HeldOpenTimeout = 30
+            };
         }
     }
 }

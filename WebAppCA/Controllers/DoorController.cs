@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using WebAppCA.Models;
 using WebAppCA.Services;
+using Door;
 
 namespace WebAppCA.Controllers
 {
@@ -25,44 +26,72 @@ namespace WebAppCA.Controllers
             _deviceService = deviceService;
         }
 
-        // GET: /Door/Index
+        // GET: /GsdkDoor/Index
         public async Task<IActionResult> Index()
         {
-            // Ajouter des appareils de test si la base est vide (pour la démo)
-            await _deviceService.AddTestDevicesIfEmptyAsync();
-
-            // Récupérer la liste des portes (simulée pour l'exemple)
-            var doors = new List<DoorInfoModel>();
-
-            // Récupérer tous les appareils pour alimenter le dropdown
-            var devices = await _deviceService.GetAllDevicesAsync();
-            
-            // Si nous avons au moins un appareil, essayons de récupérer ses portes
-            if (devices.Count > 0)
+            try
             {
-                doors = await _doorService.GetDoorsAsync(devices[0].DeviceID);
+                // Ajouter des appareils de test si la base est vide (pour la démo)
+                await _deviceService.AddTestDevicesIfEmptyAsync();
+
+                // Récupérer tous les appareils pour alimenter le dropdown
+                var devices = await _deviceService.GetAllDevicesAsync();
+
+                // Préparer la liste des portes
+                var doors = new List<DoorInfoModel>();
+
+                // Si nous avons au moins un appareil, récupérer ses portes
+                if (devices.Count > 0)
+                {
+                    var deviceID = (uint)devices[0].DeviceID;
+                    var doorInfos = await _doorService.GetListAsync(deviceID);
+                    var doorStatuses = await _doorService.GetStatusAsync(deviceID);
+
+                    // Convertir les informations de porte en modèles pour la vue
+                    foreach (var doorInfo in doorInfos)
+                    {
+                        var doorStatus = doorStatuses.FirstOrDefault(s => s.DoorID == doorInfo.DoorID);
+                        var status = doorStatus != null ? (doorStatus.IsUnlocked ? "Déverrouillée" : "Verrouillée") : "Inconnu";
+
+                        doors.Add(new DoorInfoModel
+                        {
+                            DoorID = doorInfo.DoorID,
+                            Name = doorInfo.Name,
+                            DeviceID = doorInfo.EntryDeviceID,
+                            RelayPort = (byte)doorInfo.Relay.Port,
+                            DeviceName = GetDeviceName(devices, doorInfo.EntryDeviceID),
+                            Status = status
+                        });
+                    }
+                }
+
+                // Passer les appareils à la vue
+                ViewBag.Devices = devices;
+
+                return View(doors);
             }
-
-            // Passer les appareils à la vue
-            ViewBag.Devices = devices;
-
-            return View(doors);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du chargement de la page Index");
+                TempData["Error"] = "Une erreur est survenue lors du chargement des portes: " + ex.Message;
+                return View(new List<DoorInfoModel>());
+            }
         }
 
-        // POST: /Door/AddDoor
+        // POST: /GsdkDoor/AddDoor
         [HttpPost]
         public async Task<IActionResult> AddDoor(string doorName, uint deviceID, int portNumber)
         {
             try
             {
-                var model = new AddDoorModel
-                {
-                    DoorName = doorName,
-                    DeviceID = deviceID,
-                    PortNumber = portNumber
-                };
+                // Créer un identifiant unique pour la porte
+                var doorID = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-                var result = await _doorService.AddDoorAsync(model);
+                // Créer l'objet DoorInfo
+                var doorInfo = DoorService.CreateDoorInfo(doorName, doorID, deviceID, (uint)portNumber);
+
+                // Ajouter la porte
+                var result = await _doorService.AddAsync(deviceID, new[] { doorInfo });
 
                 if (result)
                 {
@@ -76,37 +105,46 @@ namespace WebAppCA.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erreur lors de l'ajout de la porte");
-                TempData["Error"] = ex.Message;
+                TempData["Error"] = "Erreur lors de l'ajout de la porte: " + ex.Message;
             }
 
             return RedirectToAction("Index");
         }
 
-        // POST: /Door/ToggleDoor
+        // POST: /GsdkDoor/ToggleDoor
         [HttpPost]
-        public async Task<IActionResult> ToggleDoor(uint doorID)
+        public async Task<IActionResult> ToggleDoor(uint doorID, bool unlock = true)
         {
             try
             {
                 // Récupérer les appareils pour trouver celui qui contient cette porte
                 var devices = await _deviceService.GetAllDevicesAsync();
-                
+
                 if (devices.Count > 0)
                 {
-                    // Pour la simplicité, supposons que la porte est sur le premier appareil
+                    // Pour simplifier, utilisons le premier appareil
                     var deviceID = (uint)devices[0].DeviceID;
-                    
-                    // Supposons que la porte est actuellement verrouillée (pour la démo)
-                    // Dans un cas réel, nous devrions vérifier l'état actuel
-                    var unlock = true;
-                    
-                    var result = await _doorService.ToggleDoorAsync(deviceID, doorID, unlock);
-                    
-                    if (result)
+
+                    // Vérifier l'état actuel de la porte
+                    var doorStatuses = await _doorService.GetStatusAsync(deviceID);
+                    var doorStatus = doorStatuses.FirstOrDefault(s => s.DoorID == doorID);
+
+                    // Déterminer l'action à effectuer
+                    bool result;
+                    if (doorStatus != null && doorStatus.IsUnlocked)
                     {
-                        TempData["Message"] = $"État de la porte {doorID} modifié avec succès";
+                        // La porte est déverrouillée, donc verrouiller
+                        result = await _doorService.LockAsync(deviceID, new[] { doorID });
+                        if (result) TempData["Message"] = $"Porte {doorID} verrouillée avec succès";
                     }
                     else
+                    {
+                        // La porte est verrouillée ou état inconnu, donc déverrouiller
+                        result = await _doorService.UnlockAsync(deviceID, new[] { doorID });
+                        if (result) TempData["Message"] = $"Porte {doorID} déverrouillée avec succès";
+                    }
+
+                    if (!result)
                     {
                         TempData["Error"] = $"Erreur lors du changement d'état de la porte {doorID}";
                     }
@@ -125,7 +163,7 @@ namespace WebAppCA.Controllers
             return RedirectToAction("Index");
         }
 
-        // POST: /Door/DeleteDoor
+        // POST: /GsdkDoor/DeleteDoor
         [HttpPost]
         public async Task<IActionResult> DeleteDoor(uint doorID)
         {
@@ -133,14 +171,15 @@ namespace WebAppCA.Controllers
             {
                 // Récupérer les appareils pour trouver celui qui contient cette porte
                 var devices = await _deviceService.GetAllDevicesAsync();
-                
+
                 if (devices.Count > 0)
                 {
-                    // Pour la simplicité, supposons que la porte est sur le premier appareil
+                    // Pour simplifier, utilisons le premier appareil
                     var deviceID = (uint)devices[0].DeviceID;
-                    
-                    var result = await _doorService.DeleteDoorAsync(deviceID, doorID);
-                    
+
+                    // Supprimer la porte
+                    var result = await _doorService.DeleteAsync(deviceID, new[] { doorID });
+
                     if (result)
                     {
                         TempData["Message"] = $"Porte {doorID} supprimée avec succès";
@@ -162,6 +201,13 @@ namespace WebAppCA.Controllers
             }
 
             return RedirectToAction("Index");
+        }
+
+        // Méthode d'assistance pour obtenir le nom d'un appareil à partir de son ID
+        private string GetDeviceName(List<DeviceInfoModel> devices, uint deviceID)
+        {
+            var device = devices.Find(d => d.DeviceID == deviceID);
+            return device?.DeviceName ?? $"Appareil {deviceID}";
         }
     }
 }

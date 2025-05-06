@@ -1,152 +1,171 @@
-﻿@model List<WebAppCA.Models.DeviceInfoModel>
+﻿@model List<WebAppCA.Models.DoorInfoModel>
+@{
+    ViewData["Title"] = "Gestion des Portes (GSDK)";
+}
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-cpu"></i> Liste des équipements</h2>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#deviceModal">
-            <i class="bi bi-plus-circle"></i> Ajouter un équipement
-        </button>
+<div class="container">
+    <h2 class="my-4">Gestion des Portes (API GSDK)</h2>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Ajouter une Nouvelle Porte</h5>
+        </div>
+        <div class="card-body">
+            <form asp-controller="GsdkDoor" asp-action="AddDoor" method="post" class="row g-3">
+                <div class="col-md-4">
+                    <label for="doorName" class="form-label">Nom de la porte</label>
+                    <input type="text" class="form-control" id="doorName" name="doorName" required maxlength="48">
+                </div>
+                <div class="col-md-4">
+                    <label for="deviceID" class="form-label">Équipement</label>
+                    <select class="form-select" id="deviceID" name="deviceID" required>
+                        <option value="">Sélectionner un équipement</option>
+                        @foreach (var device in ViewBag.Devices ?? new List<WebAppCA.Models.DeviceInfoModel>())
+                        {
+                            <option value="@device.DeviceID">@device.DeviceName (@device.IPAddress)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="portNumber" class="form-label">Numéro de port</label>
+                    <input type="number" class="form-control" id="portNumber" name="portNumber" min="0" max="255" required>
+                </div>
+                <div class="col-12 mt-3">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Ajouter
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    @if (TempData["Message"] != null)
-    {
-        <div class="alert alert-success">
-            <i class="bi bi-check-circle"></i> @TempData["Message"]
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Liste des Portes</h5>
+            <button id="refreshButton" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Rafraîchir
+            </button>
         </div>
-    }
-
-    <div class="card shadow-sm">
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th><i class="bi bi-pc-display"></i> Nom de l'appareil</th>
-                            <th><i class="bi bi-fingerprint"></i> ID</th>
-                            <th><i class="bi bi-globe"></i> Adresse IP</th>
-                            <th><i class="bi bi-circle-fill"></i> Status</th>
-                            <th><i class="bi bi-gear"></i> Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @if (Model != null && Model.Any())
-                        {
-                            foreach (var device in Model)
+            @if (Model != null && Model.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nom</th>
+                                <th>Équipement</th>
+                                <th>Port</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var door in Model)
                             {
                                 <tr>
-                                    <td>@device.DeviceName</td>
-                                    <td>@device.DeviceID</td>
-                                    <td>@device.IPAddress</td>
+                                    <td>@door.DoorID</td>
+                                    <td>@door.Name</td>
+                                    <td>@door.DeviceName</td>
+                                    <td>@door.RelayPort</td>
                                     <td>
-                                        <span class="badge @(device.Status == "Connecté" ? "bg-success" : "bg-secondary")">
-                                            @device.Status
-                                        </span>
+                                        @if (door.Status == "Déverrouillée")
+                                        {
+                                            <span class="badge bg-success">@door.Status</span>
+                                        }
+                                        else if (door.Status == "Verrouillée")
+                                        {
+                                            <span class="badge bg-danger">@door.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@door.Status</span>
+                                        }
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
-                                            <form asp-controller="Device" asp-action="Connect" method="post">
-                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Connecter">
-                                                    <i class="bi bi-plug"></i>
+                                            <form asp-controller="GsdkDoor" asp-action="ToggleDoor" method="post" class="me-2">
+                                                <input type="hidden" name="doorID" value="@door.DoorID" />
+                                                <button type="submit" class="btn btn-sm @(door.Status == "Déverrouillée" ? "btn-outline-danger" : "btn-outline-success")"
+                                                        title="@(door.Status == "Déverrouillée" ? "Verrouiller" : "Déverrouiller")">
+                                                    <i class="bi @(door.Status == "Déverrouillée" ? "bi-lock" : "bi-unlock")"></i>
                                                 </button>
                                             </form>
-                                            <form asp-controller="Device" asp-action="ReadLogs" method="post">
-                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-info" title="Voir logs">
-                                                    <i class="bi bi-file-text"></i>
-                                                </button>
-                                            </form>
-                                            <form asp-controller="Device" asp-action="Reboot" method="post">
-                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-warning" title="Redémarrer">
-                                                    <i class="bi bi-arrow-repeat"></i>
-                                                </button>
-                                            </form>
-                                            <form asp-controller="Device" asp-action="Reset" method="post">
-                                                <input type="hidden" name="deviceID" value="@device.DeviceID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Réinitialiser">
-                                                    <i class="bi bi-arrow-counterclockwise"></i>
+                                            <form asp-controller="GsdkDoor" asp-action="DeleteDoor" method="post">
+                                                <input type="hidden" name="doorID" value="@door.DoorID" />
+                                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte?')"
+                                                        title="Supprimer">
+                                                    <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
                                         </div>
                                     </td>
                                 </tr>
                             }
-                        }
-                        else
-                        {
-                            <tr>
-                                <td colspan="5" class="text-center py-4">
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle"></i> Aucun appareil trouvé
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal d'ajout d'équipement -->
-<div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="deviceModalLabel">
-                    <i class="bi bi-plus-circle"></i> Ajouter un équipement
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
-            </div>
-            <form asp-controller="Device" asp-action="ConnectByIPAndPort" method="post">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Adresse IP</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-globe"></i></span>
-                            <input name="ip" id="ip" class="form-control" placeholder="192.168.56.1" required />
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Port</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="bi bi-ethernet"></i></span>
-                            <input name="port" id="port" type="number" class="form-control" value="51211" required />
-                        </div>
-                    </div>
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Annuler
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Chercher
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-@section Styles {
-    <style>
-        .table th {
-            white-space: nowrap;
-        }
-
-        .btn-group .btn {
-            margin-right: 5px;
-        }
-
-            .btn-group .btn:last-child {
-                margin-right: 0;
             }
+            else
+            {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> Aucune porte n'est configurée actuellement.
+                </div>
+            }
+        </div>
+    </div>
+</div>
 
-        .badge {
-            font-size: 0.85em;
-            padding: 0.35em 0.65em;
-        }
-    </style>
+@if (TempData["Message"] != null)
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-success text-white">
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                @TempData["Message"]
+            </div>
+        </div>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-danger text-white">
+                <strong class="me-auto">Erreur</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                @TempData["Error"]
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        // Auto-hide toasts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            var toasts = document.querySelectorAll('.toast');
+            toasts.forEach(function(toast) {
+                setTimeout(function() {
+                    var bsToast = bootstrap.Toast.getInstance(toast);
+                    if (bsToast) {
+                        bsToast.hide();
+                    }
+                }, 5000);
+            });
+
+            // Configurer le bouton de rafraîchissement
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                window.location.reload();
+            });
+        });
+    </script>
 }

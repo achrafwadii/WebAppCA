@@ -1,20 +1,20 @@
 ﻿@model List<WebAppCA.Models.DoorInfoModel>
 @{
-    ViewData["Title"] = "Gestion des Portes";
+    ViewData["Title"] = "Gestion des Portes (GSDK)";
 }
 
 <div class="container">
-    <h2 class="my-4">Gestion des Portes</h2>
+    <h2 class="my-4">Gestion des Portes (API GSDK)</h2>
 
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0">Ajouter une Nouvelle Porte</h5>
         </div>
         <div class="card-body">
-            <form asp-controller="Door" asp-action="AddDoor" method="post" class="row g-3">
+            <form asp-controller="GsdkDoor" asp-action="AddDoor" method="post" class="row g-3">
                 <div class="col-md-4">
                     <label for="doorName" class="form-label">Nom de la porte</label>
-                    <input type="text" class="form-control" id="doorName" name="doorName" required>
+                    <input type="text" class="form-control" id="doorName" name="doorName" required maxlength="48">
                 </div>
                 <div class="col-md-4">
                     <label for="deviceID" class="form-label">Équipement</label>
@@ -40,8 +40,11 @@
     </div>
 
     <div class="card">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Liste des Portes</h5>
+            <button id="refreshButton" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Rafraîchir
+            </button>
         </div>
         <div class="card-body">
             @if (Model != null && Model.Any())
@@ -54,6 +57,7 @@
                                 <th>Nom</th>
                                 <th>Équipement</th>
                                 <th>Port</th>
+                                <th>Statut</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -63,20 +67,36 @@
                                 <tr>
                                     <td>@door.DoorID</td>
                                     <td>@door.Name</td>
-                                    <td>@door.DeviceID</td>
+                                    <td>@door.DeviceName</td>
                                     <td>@door.RelayPort</td>
                                     <td>
+                                        @if (door.Status == "Déverrouillée")
+                                        {
+                                            <span class="badge bg-success">@door.Status</span>
+                                        }
+                                        else if (door.Status == "Verrouillée")
+                                        {
+                                            <span class="badge bg-danger">@door.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@door.Status</span>
+                                        }
+                                    </td>
+                                    <td>
                                         <div class="btn-group" role="group">
-                                            <form asp-controller="Door" asp-action="ToggleDoor" method="post" class="me-2">
+                                            <form asp-controller="GsdkDoor" asp-action="ToggleDoor" method="post" class="me-2">
                                                 <input type="hidden" name="doorID" value="@door.DoorID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-toggle-on"></i>
+                                                <button type="submit" class="btn btn-sm @(door.Status == "Déverrouillée" ? "btn-outline-danger" : "btn-outline-success")"
+                                                        title="@(door.Status == "Déverrouillée" ? "Verrouiller" : "Déverrouiller")">
+                                                    <i class="bi @(door.Status == "Déverrouillée" ? "bi-lock" : "bi-unlock")"></i>
                                                 </button>
                                             </form>
-                                            <form asp-controller="Door" asp-action="DeleteDoor" method="post">
+                                            <form asp-controller="GsdkDoor" asp-action="DeleteDoor" method="post">
                                                 <input type="hidden" name="doorID" value="@door.DoorID" />
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte?')">
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte?')"
+                                                        title="Supprimer">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
@@ -140,6 +160,11 @@
                         bsToast.hide();
                     }
                 }, 5000);
+            });
+
+            // Configurer le bouton de rafraîchissement
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                window.location.reload();
             });
         });
     </script>

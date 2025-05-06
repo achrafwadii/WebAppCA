@@ -1,6 +1,6 @@
 ﻿@model List<WebAppCA.Models.DoorInfoModel>
 @{
-    ViewData["Title"] = "Gestion des Portes";
+    ViewData["Title"] = "Gestion des Portes ";
 }
 
 <div class="container">
@@ -14,7 +14,7 @@
             <form asp-controller="Door" asp-action="AddDoor" method="post" class="row g-3">
                 <div class="col-md-4">
                     <label for="doorName" class="form-label">Nom de la porte</label>
-                    <input type="text" class="form-control" id="doorName" name="doorName" required>
+                    <input type="text" class="form-control" id="doorName" name="doorName" required maxlength="48">
                 </div>
                 <div class="col-md-4">
                     <label for="deviceID" class="form-label">Équipement</label>
@@ -40,8 +40,11 @@
     </div>
 
     <div class="card">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Liste des Portes</h5>
+            <button id="refreshButton" class="btn btn-light btn-sm">
+                <i class="bi bi-arrow-clockwise"></i> Rafraîchir
+            </button>
         </div>
         <div class="card-body">
             @if (Model != null && Model.Any())
@@ -71,9 +74,13 @@
                                         {
                                             <span class="badge bg-success">@door.Status</span>
                                         }
-                                        else
+                                        else if (door.Status == "Verrouillée")
                                         {
                                             <span class="badge bg-danger">@door.Status</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@door.Status</span>
                                         }
                                     </td>
                                     <td>
@@ -153,6 +160,11 @@
                         bsToast.hide();
                     }
                 }, 5000);
+            });
+
+            // Configurer le bouton de rafraîchissement
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                window.location.reload();
             });
         });
     </script>

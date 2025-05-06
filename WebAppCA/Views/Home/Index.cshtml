@@ -53,7 +53,7 @@
                                         <div class="btn-group" role="group">
                                             <form asp-controller="Device" asp-action="ConnectByDeviceID" method="post">
                                                 <input type="hidden" name="deviceID" value="@device.DeviceID" />
-                                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Connecter">
+                                                <button type="submit" class="btn btn-sm btn-outline-primary" (click)="connectDevice(device.id)" title="Connecter">
                                                     <i class="bi bi-plug"></i>
                                                 </button>
                                             </form>
@@ -129,7 +129,7 @@
                         <i class="bi bi-x-circle"></i> Annuler
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-search"></i> Chercher
+                        <i class="bi bi-search"></i> Connecter
                     </button>
                 </div>
             </form>
@@ -156,4 +156,14 @@
             padding: 0.35em 0.65em;
         }
     </style>
+}
+@section Scripts {
+    <script>
+       connectDevice(id: number) {
+  this.http.post('/api/device/connect', { id }).subscribe(
+    res => console.log('Connecté'),
+    err => console.error(err)
+  );
+}
+    </script>
 }

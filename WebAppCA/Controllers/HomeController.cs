@@ -139,11 +139,6 @@ namespace WebAppCA.Controllers
 
 
 
-        public IActionResult Doors()
-        {
-            // Redirect to DoorController.Index (note the singular Door)
-            return RedirectToAction("Index", "Door");
-        }
 
         public IActionResult Welcome()
         {
