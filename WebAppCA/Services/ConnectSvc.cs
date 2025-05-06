@@ -73,6 +73,8 @@ namespace WebAppCA.Services
 
         public bool IsConnected => _isConnected && _connectClient != null;
 
+        public ChannelBase Channel { get; internal set; }
+
         private bool EnsureConnectClient()
         {
             if (_connectClient == null || !_isConnected)

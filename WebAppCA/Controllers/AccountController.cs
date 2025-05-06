@@ -54,6 +54,12 @@ public class AccountController : Controller
     [HttpPost]
     public IActionResult Login(string username, string password)
     {
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+        {
+            ViewBag.ErrorMessage = "Veuillez remplir tous les champs.";
+            return View();
+        }
+
         try
         {
             var user = _userService.Login(username, password);

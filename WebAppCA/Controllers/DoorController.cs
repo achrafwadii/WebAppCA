@@ -3,97 +3,74 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using WebAppCA.Models;
+using WebAppCA.Services;
 
 namespace WebAppCA.Controllers
 {
     public class DoorController : Controller
     {
         private readonly ILogger<DoorController> _logger;
-        private int result;
+        private readonly DoorService _doorService;
+        private readonly DeviceService _deviceService;
 
-        public DoorController(ILogger<DoorController> logger)
+        public DoorController(
+            ILogger<DoorController> logger,
+            DoorService doorService,
+            DeviceService deviceService)
         {
             _logger = logger;
-        }
-
-        // === Fonctions SDK pour la gestion des portes ===
-        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_GetDoor(IntPtr deviceContext, uint doorId, out IntPtr doorInfo);
-
-        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_SetDoor(IntPtr deviceContext, IntPtr doorInfo);
-
-        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_RemoveDoor(IntPtr deviceContext, uint doorId);
-
-        [DllImport("BS_SDK_V2.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int BS2_ControlDoor(IntPtr deviceContext, uint doorId, byte controlCode);
-
-        // Structure pour les informations de porte
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-        public struct BS2Door
-        {
-            public uint doorID;
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 48)]
-            public string name;
-            public uint deviceID;
-            public byte relayPort;
-            public byte mode;
-            // Ajouter d'autres champs selon le SDK
+            _doorService = doorService;
+            _deviceService = deviceService;
         }
 
         // GET: /Door/Index
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            // Récupérer la liste des portes (simulé pour l'exemple)
+            // Ajouter des appareils de test si la base est vide (pour la démo)
+            await _deviceService.AddTestDevicesIfEmptyAsync();
+
+            // Récupérer la liste des portes (simulée pour l'exemple)
             var doors = new List<DoorInfoModel>();
 
-            // Récupérer la liste des équipements pour le dropdown
-            ViewBag.Devices = GetDevices(); // Implémentez cette méthode
+            // Récupérer tous les appareils pour alimenter le dropdown
+            var devices = await _deviceService.GetAllDevicesAsync();
+            
+            // Si nous avons au moins un appareil, essayons de récupérer ses portes
+            if (devices.Count > 0)
+            {
+                doors = await _doorService.GetDoorsAsync(devices[0].DeviceID);
+            }
+
+            // Passer les appareils à la vue
+            ViewBag.Devices = devices;
 
             return View(doors);
         }
 
         // POST: /Door/AddDoor
         [HttpPost]
-        public IActionResult AddDoor(string doorName, uint deviceID, int portNumber)
+        public async Task<IActionResult> AddDoor(string doorName, uint deviceID, int portNumber)
         {
             try
             {
-                // Initialiser le SDK
-                if (result != 0) throw new Exception($"Erreur SDK: {result}");
-
-                // Connecter à l'appareil
-                IntPtr deviceContext;
-                if (result != 0) throw new Exception($"Erreur connexion: {result}");
-
-                // Configurer la nouvelle porte
-                BS2Door door = new BS2Door
+                var model = new AddDoorModel
                 {
-                    doorID = (uint)DateTime.Now.Ticks, // Générer un ID unique
-                    name = doorName,
-                    deviceID = deviceID,
-                    relayPort = (byte)portNumber,
-                    mode = 1 // Mode normal
+                    DoorName = doorName,
+                    DeviceID = deviceID,
+                    PortNumber = portNumber
                 };
 
-                // Allouer mémoire pour la structure
-                IntPtr doorPtr = Marshal.AllocHGlobal(Marshal.SizeOf(door));
-                Marshal.StructureToPtr(door, doorPtr, false);
+                var result = await _doorService.AddDoorAsync(model);
 
-                
-
-                // Libérer la mémoire
-                Marshal.FreeHGlobal(doorPtr);
-
-                if (result == 0)
+                if (result)
                 {
                     TempData["Message"] = "Porte ajoutée avec succès";
                 }
                 else
                 {
-                    TempData["Error"] = $"Erreur lors de l'ajout. Code: {result}";
+                    TempData["Error"] = "Erreur lors de l'ajout de la porte";
                 }
             }
             catch (Exception ex)
@@ -107,12 +84,37 @@ namespace WebAppCA.Controllers
 
         // POST: /Door/ToggleDoor
         [HttpPost]
-        public IActionResult ToggleDoor(uint doorID)
+        public async Task<IActionResult> ToggleDoor(uint doorID)
         {
             try
             {
-                // TODO: Ajoutez la logique de bascule d'état de la porte
-                TempData["Message"] = $"Porte {doorID} activée/désactivée";
+                // Récupérer les appareils pour trouver celui qui contient cette porte
+                var devices = await _deviceService.GetAllDevicesAsync();
+                
+                if (devices.Count > 0)
+                {
+                    // Pour la simplicité, supposons que la porte est sur le premier appareil
+                    var deviceID = (uint)devices[0].DeviceID;
+                    
+                    // Supposons que la porte est actuellement verrouillée (pour la démo)
+                    // Dans un cas réel, nous devrions vérifier l'état actuel
+                    var unlock = true;
+                    
+                    var result = await _doorService.ToggleDoorAsync(deviceID, doorID, unlock);
+                    
+                    if (result)
+                    {
+                        TempData["Message"] = $"État de la porte {doorID} modifié avec succès";
+                    }
+                    else
+                    {
+                        TempData["Error"] = $"Erreur lors du changement d'état de la porte {doorID}";
+                    }
+                }
+                else
+                {
+                    TempData["Error"] = "Aucun appareil disponible pour contrôler cette porte";
+                }
             }
             catch (Exception ex)
             {
@@ -125,12 +127,33 @@ namespace WebAppCA.Controllers
 
         // POST: /Door/DeleteDoor
         [HttpPost]
-        public IActionResult DeleteDoor(uint doorID)
+        public async Task<IActionResult> DeleteDoor(uint doorID)
         {
             try
             {
-                // TODO: Ajoutez la logique de suppression de la porte
-                TempData["Message"] = $"Porte {doorID} supprimée";
+                // Récupérer les appareils pour trouver celui qui contient cette porte
+                var devices = await _deviceService.GetAllDevicesAsync();
+                
+                if (devices.Count > 0)
+                {
+                    // Pour la simplicité, supposons que la porte est sur le premier appareil
+                    var deviceID = (uint)devices[0].DeviceID;
+                    
+                    var result = await _doorService.DeleteDoorAsync(deviceID, doorID);
+                    
+                    if (result)
+                    {
+                        TempData["Message"] = $"Porte {doorID} supprimée avec succès";
+                    }
+                    else
+                    {
+                        TempData["Error"] = $"Erreur lors de la suppression de la porte {doorID}";
+                    }
+                }
+                else
+                {
+                    TempData["Error"] = "Aucun appareil disponible pour supprimer cette porte";
+                }
             }
             catch (Exception ex)
             {
@@ -139,12 +162,6 @@ namespace WebAppCA.Controllers
             }
 
             return RedirectToAction("Index");
-        }
-
-        private List<DeviceInfoModel> GetDevices()
-        {
-            // TODO: Implémentez la récupération des équipements disponibles
-            return new List<DeviceInfoModel>();
         }
     }
 }

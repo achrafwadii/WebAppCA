@@ -22,6 +22,7 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
+builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<DoorService>();
 builder.Services.AddScoped<UtilisateurRepository>();
 builder.Services.AddScoped<DashboardService>();
