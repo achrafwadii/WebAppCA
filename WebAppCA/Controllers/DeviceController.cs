@@ -52,18 +52,25 @@ namespace WebAppCA.Controllers
                 // Vérifier si le service gRPC est disponible
                 EnsureGrpcConnection();
 
+                _logger?.LogInformation($"GrpcConnection établie, tentative de connexion à l'appareil");
+
+
                 var connectInfo = new ConnectInfo
                 {
                     IPAddr = ip,
                     Port = port,
                     UseSSL = false
                 };
+                System.Threading.Thread.Sleep(1000);
 
                 uint deviceID = 0;
                 try
                 {
+                    _logger?.LogInformation($"Appel à _connectSvc.Connect avec {ip}:{port}");
                     deviceID = _connectSvc.Connect(connectInfo);
+                    _logger?.LogInformation($"Retour de _connectSvc.Connect: deviceID={deviceID}");
                 }
+
                 catch (Exception ex)
                 {
                     _logger?.LogError(ex, $"Erreur lors de l'appel à Connect: {ex.Message}");

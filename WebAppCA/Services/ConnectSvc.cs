@@ -110,6 +110,7 @@ namespace WebAppCA.Services
             }
         }
 
+
         public uint Connect(Connect.ConnectInfo connectInfo)
         {
             if (!EnsureConnectClient())
@@ -120,14 +121,21 @@ namespace WebAppCA.Services
                 _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port} avec UseSSL={UseSSL}",
                     connectInfo.IPAddr, connectInfo.Port, connectInfo.UseSSL);
 
+                // Ajout d'un petit délai avant la tentative de connexion
+                System.Threading.Thread.Sleep(500);
+
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
-                var response = _connectClient.Connect(request);
+
+                // Ajout d'un timeout pour la requête RPC
+                var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(10));
+                var response = _connectClient.Connect(request, options);
 
                 _logger?.LogInformation("Connexion réussie. DeviceID: {DeviceID}", response.DeviceID);
 
                 if (response.DeviceID <= 0)
                 {
                     _logger?.LogWarning("Le service a retourné un DeviceID invalide: {DeviceID}", response.DeviceID);
+                    _logger?.LogWarning("Statut de la réponse: {Status}", response.DeviceID);
                 }
 
                 return response.DeviceID;
@@ -140,10 +148,27 @@ namespace WebAppCA.Services
                 // Log detailed status
                 _logger?.LogError("Status détaillé: {Status}", ex.Status.ToString() ?? "Inconnu");
 
+                // En cas d'erreur de délai d'attente, essayons à nouveau avec un délai plus long
+                if (ex.StatusCode == Grpc.Core.StatusCode.DeadlineExceeded)
+                {
+                    _logger?.LogWarning("Délai d'attente dépassé. Nouvelle tentative avec un délai plus long...");
+                    try
+                    {
+                        System.Threading.Thread.Sleep(1000);
+                        var request = new ConnectRequest { ConnectInfo = connectInfo };
+                        var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(20));
+                        var response = _connectClient.Connect(request, options);
+                        return response.DeviceID;
+                    }
+                    catch (Exception retryEx)
+                    {
+                        _logger?.LogError(retryEx, "La seconde tentative a également échoué");
+                    }
+                }
+
                 throw;
             }
         }
-
         public RepeatedField<Connect.SearchDeviceInfo> SearchDevice()
         {
             if (!EnsureConnectClient())
