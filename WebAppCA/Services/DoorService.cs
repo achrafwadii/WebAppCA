@@ -27,6 +27,14 @@ namespace WebAppCA.Services
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
                 var request = new GetListRequest { DeviceID = deviceID };
                 var response = await client.GetListAsync(request);
+
+                // Vérifier si response ou response.Doors est null
+                if (response == null || response.Doors == null)
+                {
+                    _logger.LogWarning("Réponse ou liste de portes null pour l'appareil {DeviceID}", deviceID);
+                    return new RepeatedField<DoorInfo>();
+                }
+
                 return response.Doors;
             }
             catch (Exception ex)
@@ -43,6 +51,14 @@ namespace WebAppCA.Services
                 var client = new Door.Door.DoorClient(_connectSvc.Channel.CreateCallInvoker());
                 var request = new GetStatusRequest { DeviceID = deviceID };
                 var response = await client.GetStatusAsync(request);
+
+                // Vérifier si response ou response.Status est null
+                if (response == null || response.Status == null)
+                {
+                    _logger.LogWarning("Réponse ou statuts null pour l'appareil {DeviceID}", deviceID);
+                    return new RepeatedField<Door.Status>();
+                }
+
                 return response.Status;
             }
             catch (Exception ex)

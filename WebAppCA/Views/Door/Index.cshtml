@@ -160,22 +160,60 @@
 
 @section Scripts {
     <script>
-        // Auto-hide toasts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function() {
-            var toasts = document.querySelectorAll('.toast');
-            toasts.forEach(function(toast) {
-                setTimeout(function() {
-                    var bsToast = bootstrap.Toast.getInstance(toast);
-                    if (bsToast) {
-                        bsToast.hide();
+        // Fonction pour vérifier la connexion au serveur
+        async function checkConnection() {
+            try {
+                // Remplacez par une route qui vérifie la disponibilité de votre API
+                const response = await fetch('/api/health/check', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
                     }
-                }, 5000);
-            });
+                });
 
-            // Configurer le bouton de rafraîchissement
-            document.getElementById('refreshButton').addEventListener('click', function() {
-                window.location.reload();
-            });
+                if (!response.ok) {
+                    showErrorMessage("Le service des portes semble inaccessible. Veuillez vérifier votre connexion.");
+                    return false;
+                }
+
+                return true;
+            } catch (error) {
+                console.error("Erreur de connexion:", error);
+                showErrorMessage("Impossible de se connecter au service des portes. Le serveur est-il en ligne?");
+                return false;
+            }
+        }
+
+        // Afficher un message d'erreur
+        function showErrorMessage(message) {
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            errorContainer.innerHTML = `
+                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header bg-danger text-white">
+                        <strong class="me-auto">Erreur de connexion</strong>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(errorContainer);
+
+            // Auto-hide après 5 secondes
+            setTimeout(() => {
+                const toast = errorContainer.querySelector('.toast');
+                const bsToast = bootstrap.Toast.getInstance(toast);
+                if (bsToast) {
+                    bsToast.hide();
+                }
+            }, 5000);
+        }
+
+        // Vérifier la connexion au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            checkConnection();
         });
     </script>
 }

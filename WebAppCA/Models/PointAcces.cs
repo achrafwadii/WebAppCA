@@ -25,7 +25,7 @@ namespace WebAppCA.Models
         public string Description { get; set; }
 
         // Date de création et de mise à jour
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime? CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
 
         // État actuel (pour le suivi)
