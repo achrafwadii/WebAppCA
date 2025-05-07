@@ -6,6 +6,11 @@ namespace WebAppCA.Models
     // Modèle pour les informations de base d'une porte
     public class DoorInfoModel
     {
+        public string DoorName { get; set; }    // Nom de la porte  
+        public string DeviceName { get; set; }  // Nom de l’appareil ou identifiant  
+        public byte RelayPort { get; set; }     // Numéro du relais (port)  
+        public byte Mode { get; set; }
+        public string Status { get; set; }      // État de la porte (ouvert/fermé) 
         public uint DoorID { get; set; }
 
         [Required(ErrorMessage = "Le nom de la porte est requis")]
@@ -13,15 +18,7 @@ namespace WebAppCA.Models
         public string Name { get; set; }
 
         [Required(ErrorMessage = "L'ID du dispositif est requis")]
-        public uint DeviceID { get; set; }
-
-        [Required(ErrorMessage = "Le port du relais est requis")]
-        [Range(0, 255, ErrorMessage = "Le port doit être entre 0 et 255")]
-        public byte RelayPort { get; set; }
-
-        // Propriétés pour la vue (non mappées directement vers l'API)
-        public string DeviceName { get; set; }
-        public string Status { get; set; }
+        public uint DeviceID { get; set; }       
 
         // Propriétés supplémentaires pour lier avec PointAcces
         public int PointAccesId { get; set; }
