@@ -93,7 +93,7 @@ namespace WebAppCA.Controllers
                             var newDevice = new DbDeviceInfo
                             {
                                 DeviceId = (int)deviceID, // Make sure ID is set properly
-                                Name = $"Device-{deviceID}",
+                                DeviceName = $"Device-{deviceID}",
                                 IPAddress = ip ?? "unknown", // Prevent nulls
                                 Port = port,
                                 UseSSL = false,

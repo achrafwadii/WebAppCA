@@ -11,7 +11,7 @@ namespace WebAppCA.Models
 
         // Make these nullable where appropriate
         [StringLength(100)]
-        public string? Name { get; set; }
+        public string? DeviceName { get; set; }
 
         [Required]
         [StringLength(50)]

@@ -78,7 +78,7 @@ namespace WebAppCA.Controllers
                     deviceInfoModels.Add(new DeviceInfoModel
                     {
                         DeviceID = (int)device.DeviceID,
-                        DeviceName = device.Name,
+                        DeviceName = device.DeviceName,
                         IPAddress = device.IPAddress,
                         Status = connectedDevice != null ? "Connecté" : "Déconnecté"
                     });
@@ -94,7 +94,7 @@ namespace WebAppCA.Controllers
                     deviceInfoModels.Add(new DeviceInfoModel
                     {
                         DeviceID = (int)device.DeviceID,
-                        DeviceName = device.Name,
+                        DeviceName = device.DeviceName,
                         IPAddress = device.IPAddress,
                         Status = "Statut inconnu"
                     });

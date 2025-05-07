@@ -50,7 +50,7 @@ namespace WebAppCA.Data
 
             // Configure DeviceInfo nullable properties
             modelBuilder.Entity<DeviceInfo>()
-                .Property(d => d.Name)
+                .Property(d => d.DeviceName)
                 .IsRequired(false);
 
             modelBuilder.Entity<DeviceInfo>()

@@ -20,29 +20,32 @@ namespace WebAppCA.Controllers
         }
 
         [HttpGet("check")]
-        public async Task<IActionResult> Check()
+        public IActionResult Check()
         {
             try
             {
-                // Vérifier si le canal gRPC est disponible
-                var channel = _connectSvc.Channel as Grpc.Core.Channel;
-
-                if (channel == null ||
-                    channel.State == Grpc.Core.ChannelState.Shutdown ||
-                    channel.State == Grpc.Core.ChannelState.TransientFailure)
+                // Vérifier si le service de connexion est disponible
+                if (!_connectSvc.IsConnected)
                 {
-                    _logger.LogWarning("Le canal gRPC n'est pas disponible");
-                    return StatusCode(503, new { message = "Le service gRPC n'est pas disponible" });
+                    _logger.LogWarning("La vérification de santé a échoué : service non connecté");
+                    return StatusCode(503, new { status = "error", message = "Service non connecté" });
                 }
 
-                return Ok(new { status = "healthy", message = "Le service est opérationnel" });
+                // Essayer d'obtenir la liste des appareils pour vérifier la connexion
+                var devices = _connectSvc.GetDeviceList();
+                if (devices == null)
+                {
+                    _logger.LogWarning("La vérification de santé a échoué : impossible d'obtenir la liste des appareils");
+                    return StatusCode(503, new { status = "error", message = "Impossible d'obtenir la liste des appareils" });
+                }
+
+                return Ok(new { status = "healthy", message = "Service opérationnel" });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la vérification de l'état du service");
-                return StatusCode(500, new { message = "Erreur interne du serveur" });
+                _logger.LogError(ex, "Erreur lors de la vérification de santé");
+                return StatusCode(500, new { status = "error", message = ex.Message });
             }
         }
     }
 }
-

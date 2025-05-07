@@ -29,7 +29,7 @@ namespace WebAppCA.Services
                     .Select(d => new DeviceInfoModel
                     {
                         DeviceID = d.DeviceID,
-                        DeviceName = d.Name ?? $"Appareil {d.DeviceID}",
+                        DeviceName = d.DeviceName ?? $"Appareil {d.DeviceID}",
                         IPAddress = d.IPAddress,
                         Port = d.Port,
                         Status = d.Status ?? (d.IsConnected == true ? "Connecté" : "Déconnecté"),
@@ -56,7 +56,7 @@ namespace WebAppCA.Services
                     .Select(d => new DeviceInfoModel
                     {
                         DeviceID = d.DeviceID,
-                        DeviceName = d.Name ?? $"Appareil {d.DeviceID}",
+                        DeviceName = d.DeviceName ?? $"Appareil {d.DeviceID}",
                         IPAddress = d.IPAddress,
                         Port = d.Port,
                         Status = d.Status ?? (d.IsConnected == true ? "Connecté" : "Déconnecté"),
@@ -84,7 +84,7 @@ namespace WebAppCA.Services
                         new DeviceInfo
                         {
                             DeviceID = 1,
-                            Name = "Contrôleur d'accès - Entrée principale",
+                            DeviceName = "Contrôleur d'accès - Entrée principale",
                             IPAddress = "192.168.1.100",
                             Port = 51211,
                             UseSSL = true,
@@ -96,7 +96,7 @@ namespace WebAppCA.Services
                         new DeviceInfo
                         {
                             DeviceID = 2,
-                            Name = "Contrôleur d'accès - Salle Serveurs",
+                            DeviceName = "Contrôleur d'accès - Salle Serveurs",
                             IPAddress = "192.168.1.101",
                             Port = 51211,
                             UseSSL = true,
