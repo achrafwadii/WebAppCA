@@ -22,6 +22,10 @@ namespace WebAppCA.Models
         // Propriétés pour la vue (non mappées directement vers l'API)
         public string DeviceName { get; set; }
         public string Status { get; set; }
+
+        // Propriétés supplémentaires pour lier avec PointAcces
+        public int PointAccesId { get; set; }
+        public string Description { get; set; }
     }
 
     // Modèle pour le statut d'une porte
@@ -64,5 +68,9 @@ namespace WebAppCA.Models
         [Required(ErrorMessage = "Le port du relais est requis")]
         [Range(0, 255, ErrorMessage = "Le port doit être entre 0 et 255")]
         public int PortNumber { get; set; }
+
+        // Ajout d'un champ de description
+        [StringLength(255, ErrorMessage = "La description ne peut pas dépasser 255 caractères")]
+        public string Description { get; set; }
     }
 }

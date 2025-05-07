@@ -1,22 +1,22 @@
 ﻿@model List<WebAppCA.Models.DoorInfoModel>
 @{
-    ViewData["Title"] = "Gestion des Portes ";
+    ViewData["Title"] = "Gestion des Portes";
 }
 
 <div class="container">
-    <h2 class="my-4">Gestion des Portes</h2>
+    <h2 class="my-4">Gestion des Points d'Accès</h2>
 
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">Ajouter une Nouvelle Porte</h5>
+            <h5 class="mb-0">Ajouter un Nouveau Point d'Accès</h5>
         </div>
         <div class="card-body">
             <form asp-controller="Door" asp-action="AddDoor" method="post" class="row g-3">
-                <div class="col-md-4">
-                    <label for="doorName" class="form-label">Nom de la porte</label>
+                <div class="col-md-3">
+                    <label for="doorName" class="form-label">Nom du point d'accès</label>
                     <input type="text" class="form-control" id="doorName" name="doorName" required maxlength="48">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="deviceID" class="form-label">Équipement</label>
                     <select class="form-select" id="deviceID" name="deviceID" required>
                         <option value="">Sélectionner un équipement</option>
@@ -26,9 +26,13 @@
                         }
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="portNumber" class="form-label">Numéro de port</label>
                     <input type="number" class="form-control" id="portNumber" name="portNumber" min="0" max="255" required>
+                </div>
+                <div class="col-md-3">
+                    <label for="description" class="form-label">Description</label>
+                    <input type="text" class="form-control" id="description" name="description" maxlength="255">
                 </div>
                 <div class="col-12 mt-3">
                     <button type="submit" class="btn btn-primary">
@@ -41,7 +45,7 @@
 
     <div class="card">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Liste des Portes</h5>
+            <h5 class="mb-0">Liste des Points d'Accès</h5>
             <button id="refreshButton" class="btn btn-light btn-sm">
                 <i class="bi bi-arrow-clockwise"></i> Rafraîchir
             </button>
@@ -57,6 +61,7 @@
                                 <th>Nom</th>
                                 <th>Équipement</th>
                                 <th>Port</th>
+                                <th>Description</th>
                                 <th>Statut</th>
                                 <th>Actions</th>
                             </tr>
@@ -69,6 +74,7 @@
                                     <td>@door.Name</td>
                                     <td>@door.DeviceName</td>
                                     <td>@door.RelayPort</td>
+                                    <td>@(string.IsNullOrEmpty(door.Description) ? "-" : door.Description)</td>
                                     <td>
                                         @if (door.Status == "Déverrouillée")
                                         {
@@ -92,10 +98,20 @@
                                                     <i class="bi @(door.Status == "Déverrouillée" ? "bi-lock" : "bi-unlock")"></i>
                                                 </button>
                                             </form>
+                                            
+                                            @if (door.PointAccesId > 0)
+                                            {
+                                                <a href="@Url.Action("DoorHistory", "Door", new { pointAccesId = door.PointAccesId })" 
+                                                   class="btn btn-sm btn-outline-info me-2" 
+                                                   title="Voir l'historique">
+                                                    <i class="bi bi-clock-history"></i>
+                                                </a>
+                                            }
+                                            
                                             <form asp-controller="Door" asp-action="DeleteDoor" method="post">
                                                 <input type="hidden" name="doorID" value="@door.DoorID" />
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte?')"
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce point d\'accès?')"
                                                         title="Supprimer">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
@@ -111,7 +127,7 @@
             else
             {
                 <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Aucune porte n'est configurée actuellement.
+                    <i class="bi bi-info-circle"></i> Aucun point d'accès n'est configuré actuellement.
                 </div>
             }
         </div>

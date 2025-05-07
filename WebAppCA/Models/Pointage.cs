@@ -34,22 +34,10 @@ namespace WebAppCA.Models
         // Propriétés de navigation
         public virtual Utilisateur Utilisateur { get; set; }
         public virtual PointAcces PointAcces { get; set; }
+        public DateOnly  DateHeure { get; internal set; }
     }
 
     
-
-    public class PointAcces
-    {
-        public int Id { get; set; }
-
-        [Required]
-        [Display(Name = "Nom")]
-        public string Nom { get; set; }
-
-        [Display(Name = "Description")]
-        public string Description { get; set; }
-    }
-
     public class FiltrePresence
     {
         [DataType(DataType.Date)]
