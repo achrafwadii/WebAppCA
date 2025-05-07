@@ -31,13 +31,16 @@ namespace WebAppCA.Models
         [Display(Name = "Point d'accès")]
         public int PointAccesId { get; set; }
 
+        // Propriété combinée pour faciliter l'affichage dans les vues
+        [Display(Name = "Date et heure")]
+        public DateTime DateHeure => this.HeureEntree;
+
         // Propriétés de navigation
         public virtual Utilisateur Utilisateur { get; set; }
         public virtual PointAcces PointAcces { get; set; }
-        public DateOnly  DateHeure { get; internal set; }
     }
 
-    
+
     public class FiltrePresence
     {
         [DataType(DataType.Date)]

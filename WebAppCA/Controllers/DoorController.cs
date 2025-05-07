@@ -32,7 +32,7 @@ namespace WebAppCA.Controllers
         }
 
         // GET: /Door/Index
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(uint? selectedDeviceId = null)
         {
             try
             {
@@ -48,7 +48,12 @@ namespace WebAppCA.Controllers
                 // Si nous avons au moins un appareil, récupérer ses portes
                 if (devices.Count > 0)
                 {
-                    var deviceID = (uint)devices[0].DeviceID;
+                    // Utiliser l'appareil sélectionné ou le premier par défaut
+                    var deviceID = selectedDeviceId ?? (uint)devices[0].DeviceID;
+
+                    // Stocker l'ID sélectionné pour la vue
+                    ViewBag.SelectedDeviceId = deviceID;
+
                     var doorInfos = await _doorService.GetListAsync(deviceID);
                     var doorStatuses = await _doorService.GetStatusAsync(deviceID);
 
@@ -91,20 +96,33 @@ namespace WebAppCA.Controllers
             }
         }
 
+        // POST: /Door/FilterByDevice
+        [HttpPost]
+        public IActionResult FilterByDevice(uint deviceId)
+        {
+            return RedirectToAction("Index", new { selectedDeviceId = deviceId });
+        }
+
         // POST: /Door/AddDoor
         [HttpPost]
-        public async Task<IActionResult> AddDoor(string doorName, uint deviceID, int portNumber, string description = "")
+        public async Task<IActionResult> AddDoor(AddDoorModel model)
         {
             try
             {
+                if (!ModelState.IsValid)
+                {
+                    TempData["Error"] = "Données de formulaire invalides";
+                    return RedirectToAction("Index");
+                }
+
                 // Créer un identifiant unique pour la porte
                 var doorID = (uint)DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
                 // Créer l'objet DoorInfo pour l'API
-                var doorInfo = DoorService.CreateDoorInfo(doorName, doorID, deviceID, (uint)portNumber);
+                var doorInfo = DoorService.CreateDoorInfo(model.DoorName, doorID, model.DeviceID, (uint)model.PortNumber);
 
                 // Ajouter la porte via l'API
-                var result = await _doorService.AddAsync(deviceID, new[] { doorInfo });
+                var result = await _doorService.AddAsync(model.DeviceID, new[] { doorInfo });
 
                 if (result)
                 {
@@ -112,10 +130,10 @@ namespace WebAppCA.Controllers
                     var pointAcces = new PointAcces
                     {
                         DoorID = doorID,
-                        Nom = doorName,
-                        DeviceID = deviceID,
-                        RelayPort = (byte)portNumber,
-                        Description = description,
+                        Nom = model.DoorName,
+                        DeviceID = model.DeviceID,
+                        RelayPort = (byte)model.PortNumber,
+                        Description = model.Description,
                         EstVerrouille = true, // Par défaut verrouillée
                         CreatedAt = DateTime.Now
                     };
@@ -145,56 +163,73 @@ namespace WebAppCA.Controllers
         {
             try
             {
-                // Récupérer les appareils pour trouver celui qui contient cette porte
-                var devices = await _deviceService.GetAllDevicesAsync();
+                // Récupérer le point d'accès pour connaître son device ID
+                var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.DoorID == doorID);
 
-                if (devices.Count > 0)
+                if (pointAcces == null)
                 {
-                    // Pour simplifier, utilisons le premier appareil
-                    var deviceID = (uint)devices[0].DeviceID;
+                    TempData["Error"] = $"Point d'accès non trouvé pour la porte {doorID}";
+                    return RedirectToAction("Index");
+                }
 
-                    // Vérifier l'état actuel de la porte
-                    var doorStatuses = await _doorService.GetStatusAsync(deviceID);
-                    var doorStatus = doorStatuses.FirstOrDefault(s => s.DoorID == doorID);
+                uint deviceID = pointAcces.DeviceID;
 
-                    // Déterminer l'action à effectuer
-                    bool result;
-                    bool isUnlocked = false;
-                    
-                    if (doorStatus != null && doorStatus.IsUnlocked)
-                    {
-                        // La porte est déverrouillée, donc verrouiller
-                        result = await _doorService.LockAsync(deviceID, new[] { doorID });
-                        if (result) TempData["Message"] = $"Porte {doorID} verrouillée avec succès";
-                        isUnlocked = false;
-                    }
-                    else
-                    {
-                        // La porte est verrouillée ou état inconnu, donc déverrouiller
-                        result = await _doorService.UnlockAsync(deviceID, new[] { doorID });
-                        if (result) TempData["Message"] = $"Porte {doorID} déverrouillée avec succès";
-                        isUnlocked = true;
-                    }
+                // Vérifier l'état actuel de la porte
+                var doorStatuses = await _doorService.GetStatusAsync(deviceID);
+                var doorStatus = doorStatuses.FirstOrDefault(s => s.DoorID == doorID);
 
-                    if (result)
+                // Déterminer l'action à effectuer
+                bool result;
+                bool isUnlocked = false;
+
+                if (doorStatus != null && doorStatus.IsUnlocked)
+                {
+                    // La porte est déverrouillée, donc verrouiller
+                    result = await _doorService.LockAsync(deviceID, new[] { doorID });
+                    if (result) TempData["Message"] = $"Porte {pointAcces.Nom} verrouillée avec succès";
+                    isUnlocked = false;
+                }
+                else
+                {
+                    // La porte est verrouillée ou état inconnu, donc déverrouiller
+                    result = await _doorService.UnlockAsync(deviceID, new[] { doorID });
+                    if (result) TempData["Message"] = $"Porte {pointAcces.Nom} déverrouillée avec succès";
+                    isUnlocked = true;
+                }
+
+                if (result)
+                {
+                    // Mettre à jour l'état dans la base de données
+                    pointAcces.EstVerrouille = !isUnlocked;
+                    pointAcces.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+
+                    // Enregistrer l'événement dans l'historique si c'est un déverrouillage
+                    if (isUnlocked)
                     {
-                        // Mettre à jour l'état dans la base de données
-                        var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.DoorID == doorID);
-                        if (pointAcces != null)
+                        // Pour démonstration, utilisons l'ID d'utilisateur 1 (administrateur par défaut)
+                        // Dans un vrai système, vous utiliseriez l'utilisateur connecté
+                        int utilisateurId = 1;
+
+                        var utilisateur = await _context.Utilisateurs.FindAsync(utilisateurId);
+                        if (utilisateur != null)
                         {
-                            pointAcces.EstVerrouille = !isUnlocked;
-                            pointAcces.UpdatedAt = DateTime.Now;
+                            var pointage = new Pointage
+                            {
+                                UtilisateurId = utilisateurId,
+                                Date = DateTime.Today,
+                                HeureEntree = DateTime.Now,
+                                PointAccesId = pointAcces.Id
+                            };
+
+                            _context.Pointages.Add(pointage);
                             await _context.SaveChangesAsync();
                         }
-                    }
-                    else
-                    {
-                        TempData["Error"] = $"Erreur lors du changement d'état de la porte {doorID}";
                     }
                 }
                 else
                 {
-                    TempData["Error"] = "Aucun appareil disponible pour contrôler cette porte";
+                    TempData["Error"] = $"Erreur lors du changement d'état de la porte {pointAcces.Nom}";
                 }
             }
             catch (Exception ex)
@@ -212,51 +247,44 @@ namespace WebAppCA.Controllers
         {
             try
             {
-                // Récupérer les appareils pour trouver celui qui contient cette porte
-                var devices = await _deviceService.GetAllDevicesAsync();
+                // Récupérer le point d'accès pour connaître son device ID
+                var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.DoorID == doorID);
 
-                if (devices.Count > 0)
+                if (pointAcces == null)
                 {
-                    // Pour simplifier, utilisons le premier appareil
-                    var deviceID = (uint)devices[0].DeviceID;
+                    TempData["Error"] = $"Point d'accès non trouvé pour la porte {doorID}";
+                    return RedirectToAction("Index");
+                }
 
-                    // Supprimer la porte via l'API
-                    var result = await _doorService.DeleteAsync(deviceID, new[] { doorID });
+                uint deviceID = pointAcces.DeviceID;
 
-                    if (result)
+                // Supprimer la porte via l'API
+                var result = await _doorService.DeleteAsync(deviceID, new[] { doorID });
+
+                if (result)
+                {
+                    // Vérifier s'il existe des pointages associés à ce point d'accès
+                    var hasRelatedPointages = await _context.Pointages.AnyAsync(p => p.PointAccesId == pointAcces.Id);
+
+                    if (hasRelatedPointages)
                     {
-                        // Supprimer le point d'accès correspondant
-                        var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.DoorID == doorID);
-                        if (pointAcces != null)
-                        {
-                            // Vérifier s'il existe des pointages associés à ce point d'accès
-                            var hasRelatedPointages = await _context.Pointages.AnyAsync(p => p.PointAccesId == pointAcces.Id);
-                            
-                            if (hasRelatedPointages)
-                            {
-                                // Ne pas supprimer si des pointages existent, juste marquer comme inactif
-                                pointAcces.UpdatedAt = DateTime.Now;
-                                // Vous pourriez ajouter un champ IsActive ou Status si nécessaire
-                                await _context.SaveChangesAsync();
-                            }
-                            else
-                            {
-                                // Supprimer complètement si aucun pointage
-                                _context.PointsAcces.Remove(pointAcces);
-                                await _context.SaveChangesAsync();
-                            }
-                        }
-
-                        TempData["Message"] = $"Porte {doorID} supprimée avec succès";
+                        // Ne pas supprimer si des pointages existent, juste marquer comme inactif
+                        pointAcces.UpdatedAt = DateTime.Now;
+                        // Vous pourriez ajouter un champ IsActive ou Status si nécessaire
+                        await _context.SaveChangesAsync();
                     }
                     else
                     {
-                        TempData["Error"] = $"Erreur lors de la suppression de la porte {doorID}";
+                        // Supprimer complètement si aucun pointage
+                        _context.PointsAcces.Remove(pointAcces);
+                        await _context.SaveChangesAsync();
                     }
+
+                    TempData["Message"] = $"Porte {pointAcces.Nom} supprimée avec succès";
                 }
                 else
                 {
-                    TempData["Error"] = "Aucun appareil disponible pour supprimer cette porte";
+                    TempData["Error"] = $"Erreur lors de la suppression de la porte {pointAcces.Nom}";
                 }
             }
             catch (Exception ex)
@@ -268,14 +296,14 @@ namespace WebAppCA.Controllers
             return RedirectToAction("Index");
         }
 
-        // GET: /Door/DoorHistory/{doorID}
+        // GET: /Door/DoorHistory/{pointAccesId}
         public async Task<IActionResult> DoorHistory(int pointAccesId)
         {
             try
             {
                 // Récupérer le point d'accès
                 var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.Id == pointAccesId);
-                
+
                 if (pointAcces == null)
                 {
                     TempData["Error"] = "Point d'accès non trouvé";
@@ -286,11 +314,11 @@ namespace WebAppCA.Controllers
                 var pointages = await _context.Pointages
                     .Include(p => p.Utilisateur)
                     .Where(p => p.PointAccesId == pointAccesId)
-                    .OrderByDescending(p => p.DateHeure)
+                    .OrderByDescending(p => p.HeureEntree)
                     .ToListAsync();
 
                 ViewBag.PointAcces = pointAcces;
-                
+
                 return View(pointages);
             }
             catch (Exception ex)
@@ -301,11 +329,191 @@ namespace WebAppCA.Controllers
             }
         }
 
+        // GET: /Door/EditDoor/{pointAccesId}
+        public async Task<IActionResult> EditDoor(int pointAccesId)
+        {
+            try
+            {
+                // Récupérer le point d'accès
+                var pointAcces = await _context.PointsAcces.FirstOrDefaultAsync(p => p.Id == pointAccesId);
+
+                if (pointAcces == null)
+                {
+                    TempData["Error"] = "Point d'accès non trouvé";
+                    return RedirectToAction("Index");
+                }
+
+                // Récupérer les appareils pour le dropdown
+                var devices = await _deviceService.GetAllDevicesAsync();
+                ViewBag.Devices = devices;
+
+                // Créer le modèle pour l'édition
+                var model = new DoorInfoModel
+                {
+                    DoorID = pointAcces.DoorID,
+                    Name = pointAcces.Nom,
+                    DeviceID = pointAcces.DeviceID,
+                    RelayPort = pointAcces.RelayPort,
+                    Description = pointAcces.Description,
+                    PointAccesId = pointAcces.Id
+                };
+
+                return View(model);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du chargement du formulaire d'édition");
+                TempData["Error"] = "Une erreur est survenue: " + ex.Message;
+                return RedirectToAction("Index");
+            }
+        }
+
+        // POST: /Door/EditDoor
+        [HttpPost]
+        public async Task<IActionResult> EditDoor(DoorInfoModel model)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    TempData["Error"] = "Données de formulaire invalides";
+                    return RedirectToAction("EditDoor", new { pointAccesId = model.PointAccesId });
+                }
+
+                // Récupérer le point d'accès existant
+                var pointAcces = await _context.PointsAcces.FindAsync(model.PointAccesId);
+
+                if (pointAcces == null)
+                {
+                    TempData["Error"] = "Point d'accès non trouvé";
+                    return RedirectToAction("Index");
+                }
+
+                // Mettre à jour les informations dans l'API
+                var doorInfo = await GetDoorInfoFromApi(pointAcces.DeviceID, pointAcces.DoorID);
+
+                if (doorInfo != null)
+                {
+                    // Mettre à jour les propriétés qui peuvent être modifiées
+                    doorInfo.Name = model.Name;
+                    // Si le device ID a changé, mettre à jour les autres propriétés associées
+                    if (doorInfo.EntryDeviceID != model.DeviceID)
+                    {
+                        doorInfo.EntryDeviceID = model.DeviceID;
+                        doorInfo.ExitDeviceID = model.DeviceID;
+                        doorInfo.Relay.DeviceID = model.DeviceID;
+                        doorInfo.Sensor.DeviceID = model.DeviceID;
+                        doorInfo.Button.DeviceID = model.DeviceID;
+                    }
+                    // Mettre à jour le port du relais
+                    doorInfo.Relay.Port = model.RelayPort;
+
+                    // Supprimer l'ancienne porte
+                    await _doorService.DeleteAsync(pointAcces.DeviceID, new[] { pointAcces.DoorID });
+
+                    // Ajouter la porte mise à jour
+                    var result = await _doorService.AddAsync(model.DeviceID, new[] { doorInfo });
+
+                    if (result)
+                    {
+                        // Mettre à jour la base de données
+                        pointAcces.Nom = model.Name;
+                        pointAcces.DeviceID = model.DeviceID;
+                        pointAcces.RelayPort = model.RelayPort;
+                        pointAcces.Description = model.Description;
+                        pointAcces.UpdatedAt = DateTime.Now;
+
+                        await _context.SaveChangesAsync();
+
+                        TempData["Message"] = "Point d'accès mis à jour avec succès";
+                    }
+                    else
+                    {
+                        TempData["Error"] = "Erreur lors de la mise à jour du point d'accès dans l'API";
+                    }
+                }
+                else
+                {
+                    TempData["Error"] = "Impossible de trouver la porte dans l'API";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la mise à jour du point d'accès");
+                TempData["Error"] = "Une erreur est survenue: " + ex.Message;
+            }
+
+            return RedirectToAction("Index");
+        }
+
+        // GET: /Door/Monitor
+        public async Task<IActionResult> Monitor()
+        {
+            try
+            {
+                // Récupérer tous les points d'accès
+                var pointsAcces = await _context.PointsAcces.ToListAsync();
+
+                // Récupérer les appareils
+                var devices = await _deviceService.GetAllDevicesAsync();
+
+                // Préparer le modèle pour la vue
+                var doorStatuses = new List<DoorStatusModel>();
+
+                foreach (var pointAcces in pointsAcces)
+                {
+                    // Récupérer le statut depuis l'API
+                    var apiStatuses = await _doorService.GetStatusAsync(pointAcces.DeviceID);
+                    var apiStatus = apiStatuses.FirstOrDefault(s => s.DoorID == pointAcces.DoorID);
+
+                    if (apiStatus != null)
+                    {
+                        doorStatuses.Add(new DoorStatusModel
+                        {
+                            DoorID = pointAcces.DoorID,
+                            IsOpen = apiStatus.IsOpen,
+                            IsUnlocked = apiStatus.IsUnlocked,
+                            HeldOpen = apiStatus.HeldOpen,
+                            AlarmFlags = apiStatus.AlarmFlags
+                        });
+                    }
+                }
+
+                return View(doorStatuses);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du chargement de la page de surveillance");
+                TempData["Error"] = "Une erreur est survenue: " + ex.Message;
+                return View(new List<DoorStatusModel>());
+            }
+        }
+
         // Méthode d'assistance pour obtenir le nom d'un appareil à partir de son ID
         private string GetDeviceName(List<DeviceInfoModel> devices, uint deviceID)
         {
             var device = devices.Find(d => d.DeviceID == deviceID);
             return device?.DeviceName ?? $"Appareil {deviceID}";
+        }
+
+        // Méthode pour récupérer les informations d'une porte depuis l'API
+        private async Task<Door.DoorInfo> GetDoorInfoFromApi(uint deviceID, uint doorID)
+        {
+            try
+            {
+                // Récupérer toutes les portes pour cet appareil
+                var doorInfos = await _doorService.GetListAsync(deviceID);
+
+                // Trouver la porte spécifique
+                var doorInfo = doorInfos.FirstOrDefault(d => d.DoorID == doorID);
+
+                return doorInfo;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Erreur lors de la récupération des informations de la porte {doorID} depuis l'API");
+                return null;
+            }
         }
     }
 }
