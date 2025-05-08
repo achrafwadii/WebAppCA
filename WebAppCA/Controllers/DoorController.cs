@@ -78,6 +78,7 @@ namespace WebAppCA.Controllers
                         });
                     }
                 }
+
                 ViewBag.Devices = devices;
                 return View(doors);
             }

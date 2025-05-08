@@ -38,6 +38,7 @@
 		<Protobuf Include="Protos\door.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\action.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\*.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-
+		<Protobuf Include="Protos\cert.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		
 	</ItemGroup>
 </Project>
