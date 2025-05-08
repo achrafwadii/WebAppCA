@@ -13,31 +13,29 @@
         <div class="card-body">
             <form asp-controller="Door" asp-action="AddDoor" method="post" class="row g-3">
                 <div class="col-md-4">
-                    <label for="doorName" class="form-label">Nom du point d'accès</label>
-                    <input type="text" class="form-control" id="doorName" name="doorName" required maxlength="48">
+                    <label class="form-label">Nom du point d'accès</label>
+                    <input type="text" class="form-control" name="DoorName" required maxlength="48">
                 </div>
                 <div class="col-md-4">
-                    <label for="deviceID" class="form-label">Équipement</label>
-                    <select class="form-select" id="deviceID" name="deviceID" required>
+                    <label class="form-label">Équipement</label>
+                    <select class="form-select" name="DeviceID" required>
                         <option value="">Sélectionner un équipement</option>
-                        @foreach (var device in ViewBag.Devices ?? new List<WebAppCA.Models.DeviceInfoModel>())
+                        @foreach (var device in ViewBag.Devices ?? new List<DeviceInfoModel>())
                         {
                             <option value="@device.DeviceID">@device.DeviceName (@device.IPAddress)</option>
                         }
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label for="portNumber" class="form-label">Numéro de port</label>
-                    <input type="number" class="form-control" id="portNumber" name="portNumber" min="0" max="255" required>
+                    <label class="form-label">Port</label>
+                    <input type="number" class="form-control" name="PortNumber" min="0" max="255" required>
                 </div>
                 <div class="col-md-12 mt-2">
-                    <label for="description" class="form-label">Description</label>
-                    <textarea class="form-control" id="description" name="description" maxlength="255" rows="2"></textarea>
+                    <label class="form-label">Description</label>
+                    <textarea class="form-control" name="Description" maxlength="255" rows="2"></textarea>
                 </div>
                 <div class="col-12 mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Ajouter
-                    </button>
+                    <button type="submit" class="btn btn-primary">Ajouter</button>
                 </div>
             </form>
         </div>
@@ -76,37 +74,35 @@
                                     <td>@door.RelayPort</td>
                                     <td>@door.Description</td>
                                     <td>
-                                        @if (door.Status == "Déverrouillée")
+                                        @switch (door.Status)
                                         {
-                                            <span class="badge bg-success">@door.Status</span>
-                                        }
-                                        else if (door.Status == "Verrouillée")
-                                        {
-                                            <span class="badge bg-danger">@door.Status</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-secondary">@door.Status</span>
+                                            case "Déverrouillée":
+                                                <span class="badge bg-success">@door.Status</span>
+                                                break;
+                                            case "Verrouillée":
+                                                <span class="badge bg-danger">@door.Status</span>
+                                                break;
+                                            default:
+                                                <span class="badge bg-secondary">@door.Status</span>
+                                                break;
                                         }
                                     </td>
                                     <td>
                                         <div class="btn-group" role="group">
                                             <form asp-controller="Door" asp-action="ToggleDoor" method="post" class="me-2">
                                                 <input type="hidden" name="doorID" value="@door.DoorID" />
-                                                <button type="submit" class="btn btn-sm @(door.Status == "Déverrouillée" ? "btn-outline-danger" : "btn-outline-success")"
-                                                        title="@(door.Status == "Déverrouillée" ? "Verrouiller" : "Déverrouiller")">
+                                                <button type="submit" class="btn btn-sm @(door.Status == "Déverrouillée" ? "btn-outline-danger" : "btn-outline-success")">
                                                     <i class="bi @(door.Status == "Déverrouillée" ? "bi-lock" : "bi-unlock")"></i>
                                                 </button>
                                             </form>
                                             <a href="@Url.Action("DoorHistory", "Door", new { pointAccesId = door.PointAccesId })"
-                                               class="btn btn-sm btn-outline-info me-2" title="Historique">
+                                               class="btn btn-sm btn-outline-info me-2">
                                                 <i class="bi bi-clock-history"></i>
                                             </a>
                                             <form asp-controller="Door" asp-action="DeleteDoor" method="post">
                                                 <input type="hidden" name="doorID" value="@door.DoorID" />
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte? Cette action peut affecter les données d\'accès.')"
-                                                        title="Supprimer">
+                                                        onclick="return confirm('Êtes-vous sûr de vouloir supprimer cette porte?')">
                                                     <i class="bi bi-trash"></i>
                                                 </button>
                                             </form>
@@ -121,99 +117,46 @@
             else
             {
                 <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> Aucun point d'accès n'est configuré actuellement.
+                    <i class="bi bi-info-circle"></i> Aucun point d'accès configuré
                 </div>
             }
         </div>
     </div>
 </div>
 
-@if (TempData["Message"] != null)
-{
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+<!-- Notifications Toast -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    @if (TempData["Message"] != null)
+    {
         <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header bg-success text-white">
-                <strong class="me-auto">Notification</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                <strong class="me-auto">Succès</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
             </div>
             <div class="toast-body">
                 @TempData["Message"]
             </div>
         </div>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    }
+    @if (TempData["Error"] != null)
+    {
         <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="toast-header bg-danger text-white">
                 <strong class="me-auto">Erreur</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
             </div>
             <div class="toast-body">
                 @TempData["Error"]
             </div>
         </div>
-    </div>
-}
+    }
+</div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
     <script>
-        // Fonction pour vérifier la connexion au serveur
-        async function checkConnection() {
-            try {
-                // Remplacez par une route qui vérifie la disponibilité de votre API
-                const response = await fetch('/api/health/check', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                if (!response.ok) {
-                    showErrorMessage("Le service des portes semble inaccessible. Veuillez vérifier votre connexion.");
-                    return false;
-                }
-
-                return true;
-            } catch (error) {
-                console.error("Erreur de connexion:", error);
-                showErrorMessage("Impossible de se connecter au service des portes. Le serveur est-il en ligne?");
-                return false;
-            }
-        }
-
-        // Afficher un message d'erreur
-        function showErrorMessage(message) {
-            const errorContainer = document.createElement('div');
-            errorContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-            errorContainer.innerHTML = `
-                <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header bg-danger text-white">
-                        <strong class="me-auto">Erreur de connexion</strong>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                    <div class="toast-body">
-                        ${message}
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(errorContainer);
-
-            // Auto-hide après 5 secondes
-            setTimeout(() => {
-                const toast = errorContainer.querySelector('.toast');
-                const bsToast = bootstrap.Toast.getInstance(toast);
-                if (bsToast) {
-                    bsToast.hide();
-                }
-            }, 5000);
-        }
-
-        // Vérifier la connexion au chargement de la page
-        document.addEventListener('DOMContentLoaded', function() {
-            checkConnection();
+        document.getElementById('refreshButton').addEventListener('click', function() {
+            window.location.reload();
         });
     </script>
 }

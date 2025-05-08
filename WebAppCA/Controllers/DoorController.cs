@@ -32,106 +32,59 @@ namespace WebAppCA.Controllers
             _context = context;
         }
 
-        // GET: /Door/Index
         public async Task<IActionResult> Index(uint? selectedDeviceId = null)
         {
             try
             {
-                // Ajouter des appareils de test si la base est vide (pour la démo)
-                await _deviceService.AddTestDevicesIfEmptyAsync();
+                // Ajouter des logs de débogage
+                _logger.LogInformation("Début de la méthode Index");
 
-                // Récupérer tous les appareils pour alimenter le dropdown
+                // Vérifiez si les appareils sont bien récupérés
                 var devices = await _deviceService.GetAllDevicesAsync();
+                _logger.LogInformation($"Nombre d'appareils récupérés : {devices?.Count ?? 0}");
 
-                // Vérifier si devices est null
-                if (devices == null)
+                if (devices == null || !devices.Any())
                 {
-                    _logger.LogWarning("La liste des appareils est null");
-                    devices = new List<DeviceInfoModel>();
+                    _logger.LogWarning("Aucun appareil trouvé");
+                    ViewBag.Devices = new List<DeviceInfoModel>();
+                    return View(new List<DoorInfoModel>());
                 }
 
-                // Préparer la liste des portes
+                // Sélectionner le premier appareil si aucun n'est spécifié
+                var deviceID = selectedDeviceId ?? (uint)devices[0].DeviceID;
+                _logger.LogInformation($"ID de l'appareil sélectionné : {deviceID}");
+
+                // Récupérer les portes pour cet appareil
+                var doorInfos = await _doorService.GetListAsync(deviceID);
+                _logger.LogInformation($"Nombre de portes récupérées : {doorInfos?.Count ?? 0}");
+
+                // Convertir les portes en DoorInfoModel
                 var doors = new List<DoorInfoModel>();
-
-                // Si nous avons au moins un appareil, récupérer ses portes
-                if (devices.Count > 0)
+                if (doorInfos != null)
                 {
-                    // Utiliser l'appareil sélectionné ou le premier par défaut
-                    var deviceID = selectedDeviceId ?? (uint)devices[0].DeviceID;
-
-                    // Stocker l'ID sélectionné pour la vue
-                    ViewBag.SelectedDeviceId = deviceID;
-
-                    try
+                    foreach (var doorInfo in doorInfos)
                     {
-                        var doorInfos = await _doorService.GetListAsync(deviceID);
+                        var doorStatus = await _doorService.GetStatusAsync(deviceID);
+                        var status = doorStatus?.FirstOrDefault(s => s.DoorID == doorInfo.DoorID);
 
-                        // Vérifier si doorInfos est null
-                        if (doorInfos == null)
+                        doors.Add(new DoorInfoModel
                         {
-                            _logger.LogWarning("La liste des informations de portes est null pour l'appareil {DeviceID}", deviceID);
-                            doorInfos = new RepeatedField<DoorInfo>();
-                        }
-
-                        var doorStatuses = await _doorService.GetStatusAsync(deviceID);
-
-                        // Vérifier si doorStatuses est null
-                        if (doorStatuses == null)
-                        {
-                            _logger.LogWarning("La liste des statuts de portes est null pour l'appareil {DeviceID}", deviceID);
-                            doorStatuses = new RepeatedField<Door.Status>();
-                        }
-
-                        // Récupérer les points d'accès de la base de données
-                        var pointsAcces = await _context.PointsAcces.ToListAsync();
-
-                        // S'assurer que pointsAcces n'est pas null
-                        if (pointsAcces == null)
-                        {
-                            _logger.LogWarning("La liste des points d'accès est null");
-                            pointsAcces = new List<PointAcces>();
-                        }
-
-                        // Convertir les informations de porte en modèles pour la vue
-                        foreach (var doorInfo in doorInfos)
-                        {
-                            if (doorInfo == null) continue; // Ignorer les éléments null
-
-                            var doorStatus = doorStatuses?.FirstOrDefault(s => s != null && s.DoorID == doorInfo.DoorID);
-                            var status = doorStatus != null ? (doorStatus.IsUnlocked ? "Déverrouillée" : "Verrouillée") : "Inconnu";
-
-                            // Vérifier si cette porte existe déjà dans la base de données des points d'accès
-                            var pointAcces = pointsAcces.FirstOrDefault(p => p != null && p.DoorID == doorInfo.DoorID);
-
-                            doors.Add(new DoorInfoModel
-                            {
-                                DoorID = doorInfo.DoorID,
-                                Name = doorInfo.Name,
-                                DeviceID = doorInfo.EntryDeviceID,
-                                RelayPort = (byte)doorInfo.Relay.Port,
-                                DeviceName = GetDeviceName(devices, doorInfo.EntryDeviceID),
-                                Status = status,
-                                Description = pointAcces?.Description,
-                                PointAccesId = pointAcces?.Id ?? 0
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Erreur lors de la récupération des données de porte pour l'appareil {DeviceID}", deviceID);
-                        // Continuer avec une liste vide, mais ne pas faire échouer toute la méthode
+                            DoorID = doorInfo.DoorID,
+                            Name = doorInfo.Name,
+                            DeviceID = doorInfo.EntryDeviceID,
+                            RelayPort = (byte)doorInfo.Relay.Port,
+                            DeviceName = devices.FirstOrDefault(d => d.DeviceID == doorInfo.EntryDeviceID)?.DeviceName,
+                            Status = status?.IsUnlocked == true ? "Déverrouillée" : "Verrouillée"
+                        });
                     }
                 }
-
-                // Passer les appareils à la vue
                 ViewBag.Devices = devices;
-
                 return View(doors);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erreur lors du chargement de la page Index");
-                TempData["Error"] = "Une erreur est survenue lors du chargement des portes: " + ex.Message;
+                ViewBag.Devices = new List<DeviceInfoModel>();
                 return View(new List<DoorInfoModel>());
             }
         }
@@ -141,11 +94,30 @@ namespace WebAppCA.Controllers
         {
             return RedirectToAction("Index", new { selectedDeviceId = deviceId });
         }
+        
+
+        // Ajouter des méthodes de validation personnalisées
+        private bool ValidateDoorModel(AddDoorModel model)
+        {
+            if (model.DeviceID <= 0)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(model.DoorName))
+                return false;
+
+            // Ajouter d'autres validations spécifiques
+            return true;
+        }
 
         // POST: /Door/AddDoor
         [HttpPost]
         public async Task<IActionResult> AddDoor(AddDoorModel model)
         {
+            if (!ModelState.IsValid)
+            {
+                return View(model); // Retourner à la vue avec les erreurs de validation
+            }
+
             try
             {
                 if (!ModelState.IsValid)
@@ -190,7 +162,8 @@ namespace WebAppCA.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Erreur lors de l'ajout de la porte");
-                TempData["Error"] = "Erreur lors de l'ajout de la porte: " + ex.Message;
+                ModelState.AddModelError(string.Empty, "Une erreur est survenue lors de l'ajout de la porte.");
+                return View(model);
             }
 
             return RedirectToAction("Index");

@@ -1,29 +1,45 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using static WebAppCA.Controllers.DoorController;
 
 namespace WebAppCA.Models
 {
-    // Modèle pour les informations de base d'une porte
-    public class DoorInfoModel
-    {
-        public string DoorName { get; set; }    // Nom de la porte  
-        public string DeviceName { get; set; }  // Nom de l’appareil ou identifiant  
-        public byte RelayPort { get; set; }     // Numéro du relais (port)  
-        public byte Mode { get; set; }
-        public string Status { get; set; }      // État de la porte (ouvert/fermé) 
-        public uint DoorID { get; set; }
+   
+        public class DoorInfoModel
+        {
+            public uint DoorID { get; set; }
 
-        [Required(ErrorMessage = "Le nom de la porte est requis")]
-        [StringLength(48, ErrorMessage = "Le nom ne peut pas dépasser 48 caractères")]
-        public string Name { get; set; }
+            [Display(Name = "Nom")]
+            [Required(ErrorMessage = "Le nom de la porte est requis")]
+            [StringLength(48, ErrorMessage = "Le nom ne peut pas dépasser 48 caractères")]
+            public string Name { get; set; }
 
-        [Required(ErrorMessage = "L'ID du dispositif est requis")]
-        public uint DeviceID { get; set; }       
+            [Display(Name = "Équipement")]
+            [Required(ErrorMessage = "L'ID du dispositif est requis")]
+            public uint DeviceID { get; set; }
 
-        // Propriétés supplémentaires pour lier avec PointAcces
-        public int PointAccesId { get; set; }
-        public string Description { get; set; }
-    }
+            [Display(Name = "Nom équipement")]
+            public string DeviceName { get; set; }
+
+            [Display(Name = "Port")]
+            [Required(ErrorMessage = "Le port du relais est requis")]
+            [Range(0, 255, ErrorMessage = "Le port doit être entre 0 et 255")]
+            public byte RelayPort { get; set; }
+
+            [Display(Name = "Statut")]
+            public string Status { get; set; }
+
+            [Display(Name = "Description")]
+            [StringLength(255, ErrorMessage = "La description ne peut pas dépasser 255 caractères")]
+            public string Description { get; set; }
+
+            [Display(Name = "Point d'accès")]
+            public int PointAccesId { get; set; }
+
+            // Propriété conservée pour compatibilité
+            public byte Mode { get; set; }
+        }
+    
 
     // Modèle pour le statut d'une porte
     public class DoorStatusModel
@@ -52,7 +68,6 @@ namespace WebAppCA.Models
         }
     }
 
-    // Modèle pour l'ajout d'une porte
     public class AddDoorModel
     {
         [Required(ErrorMessage = "Le nom de la porte est requis")]

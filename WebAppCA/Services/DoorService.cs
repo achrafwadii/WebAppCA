@@ -19,7 +19,25 @@ namespace WebAppCA.Services
             _logger = logger;
             _connectSvc = connectSvc;
         }
-
+        // Ajout de gestion des erreurs plus robuste
+        private async Task<RepeatedField<T>> SafeGrpcCall<T>(Func<Task<RepeatedField<T>>> grpcMethod)
+        {
+            try
+            {
+                var result = await grpcMethod();
+                return result ?? new RepeatedField<T>();
+            }
+            catch (RpcException ex)
+            {
+                _logger.LogError(ex, $"Erreur gRPC: {ex.Status}");
+                return new RepeatedField<T>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur inattendue lors de l'appel gRPC");
+                return new RepeatedField<T>();
+            }
+        }
         public async Task<RepeatedField<DoorInfo>> GetListAsync(uint deviceID)
         {
             try
@@ -28,22 +46,17 @@ namespace WebAppCA.Services
                 var request = new GetListRequest { DeviceID = deviceID };
                 var response = await client.GetListAsync(request);
 
-                // Vérifier si response ou response.Doors est null
-                if (response == null || response.Doors == null)
-                {
-                    _logger.LogWarning("Réponse ou liste de portes null pour l'appareil {DeviceID}", deviceID);
-                    return new RepeatedField<DoorInfo>();
-                }
+                _logger.LogInformation($"Réponse obtenue pour l'appareil {deviceID}");
+                _logger.LogInformation($"Nombre de portes : {response?.Doors?.Count ?? 0}");
 
-                return response.Doors;
+                return response?.Doors ?? new RepeatedField<DoorInfo>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la récupération des portes pour l'appareil {DeviceID}", deviceID);
+                _logger.LogError(ex, $"Erreur lors de la récupération des portes pour l'appareil {deviceID}");
                 return new RepeatedField<DoorInfo>();
             }
         }
-
         public async Task<RepeatedField<Door.Status>> GetStatusAsync(uint deviceID)
         {
             try

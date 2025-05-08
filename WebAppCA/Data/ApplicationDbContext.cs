@@ -13,7 +13,7 @@ namespace WebAppCA.Data
         public DbSet<Utilisateur> Utilisateurs { get; set; }
         public DbSet<Pointage> Pointages { get; set; }
         public DbSet<PointAcces> PointsAcces { get; set; }
-
+        public DbSet<DoorInfoModel> Doors { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -64,6 +64,13 @@ namespace WebAppCA.Data
             modelBuilder.Entity<DeviceInfo>()
                 .Property(d => d.LastConnectionTime)
                 .IsRequired(false);
+            // Configuration pour DoorInfoModel
+            modelBuilder.Entity<DoorInfoModel>()
+                .HasKey(d => d.DoorID);
+
+            modelBuilder.Entity<DoorInfoModel>()
+                .Property(d => d.Name)
+                .HasMaxLength(48);
         }
     }
 }
