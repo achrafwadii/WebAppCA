@@ -29,7 +29,9 @@
                         <label class="form-label">Date de fin</label>
                         <input type="date" name="DateFin" class="form-control" value="@(Context.Request.Query["DateFin"])">
                     </div>
-                    <select name="Utilisateur" class="form-select">
+                    <div class="col-md-3">
+                        <label class="form-label">Utilisateur</label>
+                        <select name="Utilisateur" class="form-select">
                         <option value="">Tous les utilisateurs</option>
                         @if (ViewBag.Utilisateurs != null)
                         {
@@ -41,7 +43,8 @@
                                 </option>
                             }
                         }
-                    </select>
+						</select>
+                    </div>
                     <div class="col-md-3 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bi bi-search"></i> Filtrer
