@@ -4,6 +4,10 @@ using WebAppCA.Models;
 using WebAppCA.Services;
 using System.Linq;
 using System.Collections.Generic;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
+
 
 namespace WebAppCA.Controllers
 {
@@ -54,7 +58,7 @@ namespace WebAppCA.Controllers
                 return View(new DashboardViewModel());
             }
         }
-        
+
 
         public IActionResult Index()
         {
@@ -146,5 +150,14 @@ namespace WebAppCA.Controllers
             return View();
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Logout()
+        {
+            // Supprime le cookie d’authentification
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            // Redirige vers la page d’accueil (ou page de login)
+            return RedirectToAction("Index", "Home");
+        }
     }
 }

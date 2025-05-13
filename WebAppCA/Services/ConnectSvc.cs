@@ -1,260 +1,148 @@
-﻿using Connect;
-using Grpc.Core;
-using Google.Protobuf.Collections;
-using Grpc.Net.Client;
-using Microsoft.Extensions.Logging;
+﻿// ConnectSvc.cs
 using System;
 using System.Threading.Tasks;
+using Grpc.Core;
+using Google.Protobuf.Collections;
+using Microsoft.Extensions.Logging;
+using Connect;
+using static Connect.Connect;
 
 namespace WebAppCA.Services
 {
     public class ConnectSvc
     {
-        private const int SEARCH_TIMEOUT_MS = 5000;
         private readonly ILogger<ConnectSvc> _logger;
-        private Connect.Connect.ConnectClient _connectClient;
-        private bool _isConnected = false;
-        private DateTime _lastConnectionAttempt = DateTime.MinValue;
-        private readonly TimeSpan _reconnectCooldown = TimeSpan.FromSeconds(5);
+        private readonly ConnectClient _client;
+        private bool _isConnected;
+        private DateTime _lastAttempt;
+        private static readonly TimeSpan Cooldown = TimeSpan.FromSeconds(5);
 
-        // Constructor for Grpc.Core.Channel (legacy)
-        public ConnectSvc(Channel channel, ILogger<ConnectSvc> logger = null)
+        public ChannelBase Channel { get; }
+
+        public ConnectSvc(ChannelBase channel, ILogger<ConnectSvc> logger = null)
         {
             _logger = logger;
-            InitializeChannel(channel);
+            Channel = channel;
+            _client = new ConnectClient(channel);
+            TestInitialConnection();
         }
-
-        // Constructor for Grpc.Net.Client.GrpcChannel (newer)
-        public ConnectSvc(GrpcChannel channel, ILogger<ConnectSvc> logger = null)
+        public uint Connect(ConnectInfo info)
         {
-            _logger = logger;
-            InitializeChannel(channel);
+            if (!EnsureConnected())
+                throw new InvalidOperationException("Client gRPC non initialisé");
+
+            return _client.Connect(new ConnectRequest { ConnectInfo = info }).DeviceID;
         }
-
-        public ConnectSvc(ILogger<ConnectSvc> logger = null)
+        void TestInitialConnection()
         {
-            _logger = logger;
-            _logger?.LogWarning("ConnectSvc initialisé sans channel (aucune connexion disponible)");
-            _isConnected = false;
-        }
-
-        private void InitializeChannel(ChannelBase channel)
-        {
-            if (channel != null)
+            try
             {
-                try
-                {
-                    // Initialiser à la fois le client et la propriété Channel
-                    Channel = channel;
-                    _connectClient = new Connect.Connect.ConnectClient(channel);
-                    // Tester la connexion en récupérant la liste des appareils
-                    try
-                    {
-                        var request = new GetDeviceListRequest { };
-                        var response = _connectClient.GetDeviceList(request);
-                        _isConnected = true;
-                        _logger?.LogInformation("ConnectSvc initialisé avec succès. {Count} appareils trouvés.",
-                            response?.DeviceInfos?.Count ?? 0);
-                    }
-                    catch (RpcException rpcEx)
-                    {
-                        _logger?.LogError(rpcEx, "Échec du test de connexion initial: {StatusCode} - {Message}",
-                            rpcEx.StatusCode, rpcEx.Message);
-                        _isConnected = false;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger?.LogError(ex, "Erreur lors de l'initialisation du client ConnectSvc: {Message}", ex.Message);
-                    _isConnected = false;
-                }
+                var resp = _client.GetDeviceList(new GetDeviceListRequest());
+                _isConnected = true;
+                _logger?.LogInformation("Init ok. Devices: {0}", resp.DeviceInfos.Count);
             }
-            else
+            catch (RpcException ex)
             {
-                _logger?.LogWarning("ConnectSvc initialisé avec un channel null");
                 _isConnected = false;
+                _logger?.LogError(ex, "Init failed: {0}", ex.Status);
             }
         }
 
-        public bool IsConnected => _isConnected && _connectClient != null;
-
-        // La propriété Channel est utilisée par d'autres services
-        public ChannelBase Channel { get; private set; }
+        public bool IsConnected => _isConnected;
 
         public async Task<bool> TryReconnectAsync()
         {
-            if (IsConnected) return true;
+            if (_isConnected) return true;
+            if (DateTime.Now - _lastAttempt < Cooldown) return false;
 
-            // Éviter les tentatives trop fréquentes de reconnexion
-            if (DateTime.Now - _lastConnectionAttempt < _reconnectCooldown)
-            {
-                return false;
-            }
-
-            _lastConnectionAttempt = DateTime.Now;
+            _lastAttempt = DateTime.Now;
 
             try
             {
-                if (Channel != null)
-                {
-                    _connectClient = new Connect.Connect.ConnectClient(Channel);
-                    var request = new GetDeviceListRequest { };
-                    var response = await _connectClient.GetDeviceListAsync(request);
-                    _isConnected = true;
-                    _logger?.LogInformation("Reconnexion réussie. {Count} appareils trouvés.",
-                        response?.DeviceInfos?.Count ?? 0);
-                    return true;
-                }
-                return false;
+                var resp = await _client.GetDeviceListAsync(new GetDeviceListRequest());
+                _isConnected = true;
+                _logger?.LogInformation("Reconnected. Devices: {0}", resp.DeviceInfos.Count);
+                return true;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Échec de la tentative de reconnexion: {Message}", ex.Message);
                 _isConnected = false;
+                _logger?.LogError(ex, "Reconnect failed: {0}", ex.Message);
                 return false;
             }
         }
 
-        private bool EnsureConnectClient()
+        bool EnsureConnected()
         {
-            if (_connectClient == null || !_isConnected)
+            if (!_isConnected)
             {
-                var errorMessage = "Le service de connexion gRPC n'est pas disponible. Vérifiez que le serveur gRPC est en cours d'exécution.";
-                _logger?.LogError(errorMessage);
+                _logger?.LogError("gRPC not connected");
                 return false;
             }
             return true;
         }
 
-        public RepeatedField<Connect.DeviceInfo> GetDeviceList()
+        public RepeatedField<DeviceInfo> GetDeviceList()
         {
-            if (!EnsureConnectClient())
-                return new RepeatedField<Connect.DeviceInfo>();
+            if (!EnsureConnected()) return new RepeatedField<DeviceInfo>();
 
             try
             {
-                var request = new GetDeviceListRequest { };
-                var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(5));
-                var response = _connectClient.GetDeviceList(request, options);
-                return response.DeviceInfos;
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(5));
+                var resp = _client.GetDeviceList(new GetDeviceListRequest(), opts);
+                return resp.DeviceInfos;
             }
             catch (RpcException ex)
             {
-                _logger?.LogError(ex, "Erreur lors de l'appel à GetDeviceList: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
                 _isConnected = false;
-                return new RepeatedField<Connect.DeviceInfo>();
+                _logger?.LogError(ex, "GetDeviceList error: {0}", ex.Status);
+                return new RepeatedField<DeviceInfo>();
             }
         }
 
-
-        public uint Connect(Connect.ConnectInfo connectInfo)
+        public uint ConnectDevice(string ip, int port)
         {
-            if (!EnsureConnectClient())
-                return 0;
+            var info = new ConnectInfo { IPAddr = ip, Port = port, UseSSL = true };
+            var resp = _client.Connect(new ConnectRequest { ConnectInfo = info });
+            return resp.DeviceID;
+        }
+
+        public RepeatedField<SearchDeviceInfo> SearchDevice()
+        {
+            if (!EnsureConnected()) return new RepeatedField<SearchDeviceInfo>();
 
             try
             {
-                _logger?.LogInformation("Tentative de connexion à {IPAddr}:{Port} avec UseSSL={UseSSL}",
-                    connectInfo.IPAddr, connectInfo.Port, connectInfo.UseSSL);
-
-                var request = new ConnectRequest { ConnectInfo = connectInfo };
-
-                // Ajout d'un timeout pour la requête RPC
-                var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(10));
-                var response = _connectClient.Connect(request, options);
-
-                _logger?.LogInformation("Connexion réussie. DeviceID: {DeviceID}", response.DeviceID);
-
-                if (response.DeviceID <= 0)
-                {
-                    _logger?.LogWarning("Le service a retourné un DeviceID invalide: {DeviceID}", response.DeviceID);
-                }
-
-                return response.DeviceID;
+                var req = new SearchDeviceRequest { Timeout = 5000 };
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(7));
+                var resp = _client.SearchDevice(req, opts);
+                return resp.DeviceInfos;
             }
             catch (RpcException ex)
             {
-                _logger?.LogError(ex, "Erreur lors de l'appel à Connect pour {IPAddr}:{Port}: {StatusCode} - {Message}",
-                    connectInfo.IPAddr, connectInfo.Port, ex.StatusCode, ex.Message);
-
-                // Log detailed status
-                _logger?.LogError("Status détaillé: {Status}", ex.Status.ToString() ?? "Inconnu");
-
-                // En cas d'erreur de délai d'attente, essayons à nouveau avec un délai plus long
-                if (ex.StatusCode == Grpc.Core.StatusCode.DeadlineExceeded)
-                {
-                    _logger?.LogWarning("Délai d'attente dépassé. Nouvelle tentative avec un délai plus long...");
-                    try
-                    {
-                        var request = new ConnectRequest { ConnectInfo = connectInfo };
-                        var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(20));
-                        var response = _connectClient.Connect(request, options);
-                        return response.DeviceID;
-                    }
-                    catch (Exception retryEx)
-                    {
-                        _logger?.LogError(retryEx, "La seconde tentative a également échoué");
-                    }
-                }
-
                 _isConnected = false;
-                return 0;
+                _logger?.LogError(ex, "SearchDevice error: {0}", ex.Status);
+                return new RepeatedField<SearchDeviceInfo>();
             }
         }
 
-        // Les autres méthodes restent les mêmes...
-        public RepeatedField<Connect.SearchDeviceInfo> SearchDevice()
+        public void Disconnect(uint[] ids)
         {
-            if (!EnsureConnectClient())
-                return new RepeatedField<Connect.SearchDeviceInfo>();
-
-            try
-            {
-                var request = new SearchDeviceRequest { Timeout = SEARCH_TIMEOUT_MS };
-                var options = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(SEARCH_TIMEOUT_MS / 1000 + 2));
-                var response = _connectClient.SearchDevice(request, options);
-                return response.DeviceInfos;
-            }
-            catch (RpcException ex)
-            {
-                _logger?.LogError(ex, "Erreur lors de l'appel à SearchDevice: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
-                _isConnected = false;
-                return new RepeatedField<Connect.SearchDeviceInfo>();
-            }
-        }
-
-        public void Disconnect(uint[] deviceIDs)
-        {
-            if (!EnsureConnectClient())
-                return;
-
-            try
-            {
-                var request = new DisconnectRequest { };
-                request.DeviceIDs.AddRange(deviceIDs);
-                _connectClient.Disconnect(request);
-            }
-            catch (RpcException ex)
-            {
-                _logger?.LogError(ex, "Erreur lors de l'appel à Disconnect: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
-                _isConnected = false;
-            }
+            _client.Disconnect(new DisconnectRequest { DeviceIDs = { ids } });
         }
 
         public void DisconnectAll()
         {
-            if (!EnsureConnectClient())
-                return;
+            if (!EnsureConnected()) return;
 
             try
             {
-                var request = new DisconnectAllRequest { };
-                _connectClient.DisconnectAll(request);
+                _client.DisconnectAll(new DisconnectAllRequest());
             }
             catch (RpcException ex)
             {
-                _logger?.LogError(ex, "Erreur lors de l'appel à DisconnectAll: {StatusCode} - {Message}", ex.StatusCode, ex.Message);
                 _isConnected = false;
+                _logger?.LogError(ex, "DisconnectAll error: {0}", ex.Status);
             }
         }
     }

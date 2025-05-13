@@ -6,12 +6,17 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<PlatformTarget>x64</PlatformTarget>
 	</PropertyGroup>
-
+	<ItemGroup>
+		<None Update="ca.crt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
 	<ItemGroup>
 	  <Compile Remove="Services\Class.cs" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Google.Protobuf" Version="3.30.2" />
+		<PackageReference Include="Grpc" Version="2.46.6" />
 		<PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
 		<PackageReference Include="Grpc.Tools" Version="2.71.0">
 			<PrivateAssets>all</PrivateAssets>
@@ -38,7 +43,20 @@
 		<Protobuf Include="Protos\door.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\action.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\*.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\cert.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		
+		<Protobuf Include="Protos\error.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\face.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\event.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\face.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\finger.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\fingerprint.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\input.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\network.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\server.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\tna.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\user.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\time.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\config.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\display.proto" GrpcServices="Client" ProtoRoot="Protos\" />
+		<Protobuf Include="Protos\admin.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 	</ItemGroup>
 </Project>

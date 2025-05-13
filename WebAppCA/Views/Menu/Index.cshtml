@@ -49,17 +49,17 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-secondary w-100">
-                        <i class="bi bi-database"></i> Sauvegarde
-                    </button>
+                    <a asp-controller="User" asp-action="DeleteAccount" class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-trash me-2"></i>Supprimer mon compte
+                    </a>
                 </div>
                 <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-secondary w-100">
+                    <a asp-controller="Home" asp-action="Welcome" class="btn btn-outline-secondary w-100">
                         <i class="bi bi-arrow-repeat"></i> Redémarrer
-                    </button>
+                    </a>
                 </div>
                 <div class="col-md-4 mb-3">
-                    <button class="btn btn-outline-secondary w-100">
+                    <button class="btn btn-outline-secondary w-100" onclick="window.open('https://www.supremainc.com/fr/hardware/eol_notice-detail.asp?iBOARD_CONT_NO=4649&iPage=1', '_blank')">
                         <i class="bi bi-shield-check"></i> Vérifier les mises à jour
                     </button>
                 </div>

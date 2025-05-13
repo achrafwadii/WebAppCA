@@ -1,139 +1,84 @@
-﻿using Grpc.Net.Client;
+﻿// WebAppCA/Services/GatewayClient.cs
 using System;
 using System.IO;
-using System.Net.Http;
-using System.Security.Cryptography.X509Certificates;
-using Microsoft.Extensions.Logging;
 using Grpc.Core;
-using System.Threading.Tasks;
+using Grpc.Net.Client;
+using Microsoft.Extensions.Logging;
+using Connect;
+using Device;
+using static Device.Device;
 
 namespace WebAppCA.Services
 {
     public class GatewayClient
     {
-        private GrpcChannel _channel;
-        private readonly ILogger<GatewayClient> _logger;
-        public GrpcChannel Channel => _channel;
-        public bool IsConnected { get; private set; }
-        public string LastErrorMessage { get; private set; }
-        public string CurrentAddress { get; private set; }
-        public int CurrentPort { get; private set; }
+        readonly ILogger<GatewayClient> _logger;
+        Channel _coreChannel;
+        GrpcChannel _netChannel;
+        // GatewayClient.cs (ajouter la propriété)*
+        public ChannelBase Channel => _coreChannel;
+
+        public bool IsConnected => _coreChannel != null && _coreChannel.State == ChannelState.Ready;
+
+        public Connect.Connect.ConnectClient ConnectClient { get; private set; }
+        public DeviceClient DeviceClient { get; private set; }
 
         public GatewayClient(ILogger<GatewayClient> logger = null)
         {
             _logger = logger;
-            IsConnected = false;
         }
-
-        public bool Connect(string caCertPath, string address, int port)
+        // GatewayClient.cs
+        // Remplacer la seconde surcharge par celle-ci
+        public bool Connect(string caPath, string certPath, string keyPath, string address, int port)
         {
             try
             {
-                _logger?.LogInformation($"Tentative de connexion gRPC à {address}:{port}");
-                CurrentAddress = address;
-                CurrentPort = port;
+                var cacert = File.ReadAllText(caPath);
+                var clientCert = File.ReadAllText(certPath);
+                var clientKey = File.ReadAllText(keyPath);
 
-                // Configuration du HttpClientHandler
-                var handler = new HttpClientHandler
-                {
-                    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-                };
+                var ssl = new SslCredentials(cacert, new KeyCertificatePair(clientCert, clientKey));
+                _coreChannel = new Channel(address, port, ssl);
+                _netChannel = GrpcChannel.ForAddress($"https://{address}:{port}", new GrpcChannelOptions { Credentials = ssl });
 
-                // Configure SSL if using a CA certificate
-                if (!string.IsNullOrEmpty(caCertPath) && File.Exists(caCertPath))
-                {
-                    _logger?.LogInformation($"Utilisation du certificat: {caCertPath}");
-                    var caCert = new X509Certificate2(caCertPath);
-                    handler.ClientCertificates.Add(caCert);
-                }
-                else
-                {
-                    _logger?.LogWarning("Aucun certificat trouvé ou spécifié. Connexion sans certificat.");
-                }
-
-                var httpClient = new HttpClient(handler);
-
-                // Définir un timeout pour éviter de bloquer trop longtemps
-                httpClient.Timeout = TimeSpan.FromSeconds(10);
-
-                var options = new GrpcChannelOptions
-                {
-                    HttpClient = httpClient,
-                };
-
-                _channel = GrpcChannel.ForAddress($"https://{address}:{port}", options);
-
-                // Test la connexion en vérifiant l'état du canal
-                var state = _channel.State;
-                _logger?.LogInformation($"État initial du canal gRPC: {state}");
-
-                // Tester la connexion en effectuant un ping
-                if (TestConnection())
-                {
-                    IsConnected = true;
-                    _logger?.LogInformation("Connexion gRPC établie avec succès");
-                    return true;
-                }
-                else
-                {
-                    _logger?.LogWarning("La connexion gRPC a été établie mais le test a échoué");
-                    _channel = null;
-                    IsConnected = false;
-                    return false;
-                }
+                InitStubs(_coreChannel);
+                return true;
             }
-            catch (Exception ex)
+            catch
             {
-                LastErrorMessage = ex.Message;
-                _logger?.LogError(ex, $"Erreur lors de la connexion gRPC: {ex.Message}");
-                _channel = null;
-                IsConnected = false;
                 return false;
             }
         }
 
-        private bool TestConnection()
+        // Mode développement : connexion insecure
+        public bool Connect(string address, int port)
         {
             try
             {
-                var connectionTask = Task.Run(async () => {
-                    await _channel.ConnectAsync();
-                    return _channel.State == Grpc.Core.ConnectivityState.Ready ||
-                           _channel.State == Grpc.Core.ConnectivityState.Idle;
-                });
-
-                // Timeout de 5 secondes pour le test
-                var result = connectionTask.Wait(TimeSpan.FromSeconds(5));
-
-                if (!result)
-                {
-                    _logger?.LogWarning("Timeout lors du test de connexion gRPC");
-                    return false;
-                }
-
-                return connectionTask.Result;
+                _coreChannel = new Channel(address, port, ChannelCredentials.Insecure);
+                InitStubs(_coreChannel);
+                _logger?.LogInformation("gRPC insecure connected to {0}:{1}", address, port);
+                return true;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, $"Erreur lors du test de connexion gRPC: {ex.Message}");
+                _logger?.LogError(ex, "Insecure connect failed: {0}", ex.Message);
                 return false;
             }
         }
 
-        public void Reconnect()
+        
+
+        void InitStubs(Channel channel)
         {
-            if (!string.IsNullOrEmpty(CurrentAddress) && CurrentPort > 0)
-            {
-                Close();
-                Connect(null, CurrentAddress, CurrentPort);
-            }
+            ConnectClient = new Connect.Connect.ConnectClient(channel);
+            DeviceClient = new DeviceClient(channel);
         }
 
-        public void Close()
+        public void Disconnect()
         {
-            _channel?.Dispose();
-            _channel = null;
-            IsConnected = false;
+            _coreChannel?.ShutdownAsync().Wait();
+            _netChannel?.Dispose();
         }
     }
 }
