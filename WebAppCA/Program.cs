@@ -1,14 +1,13 @@
 using WebAppCA.Services;
 using System;
-using System.IO;
+using System.Threading.Tasks;
 using WebAppCA.Extensions;
 using Microsoft.EntityFrameworkCore;
 using WebAppCA.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Configuration;
 using WebAppCA.Repositories;
-using Grpc.Net.Client;
+using MyApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,41 +16,23 @@ builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
+AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<DoorService>();
+builder.Services.AddScoped<DeviceGatewayService>();
 builder.Services.AddScoped<UtilisateurRepository>();
 builder.Services.AddScoped<DashboardService>();
+
 builder.Services.AddGrpcServices(builder.Configuration);
-
-// Connexion gRPC sans validation SSL (mode dev uniquement)
-var httpHandler = new HttpClientHandler
-{
-    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-};
-
-var channel = GrpcChannel.ForAddress("https://localhost:4000", new GrpcChannelOptions
-{
-    HttpHandler = httpHandler
-});
-
-builder.Services.AddSingleton<ConnectSvc>(sp =>
-{
-    var logger = sp.GetRequiredService<ILogger<ConnectSvc>>();
-    return new ConnectSvc(channel, logger);
-});
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlOptions => sqlOptions.EnableRetryOnFailure(
-            maxRetryCount: 5,
-            maxRetryDelay: TimeSpan.FromSeconds(30),
-            errorNumbersToAdd: null)
-    ));
+        sqlOptions => sqlOptions.EnableRetryOnFailure(5, TimeSpan.FromSeconds(30), null)));
 
 builder.Services.AddCors(o =>
     o.AddPolicy("AllowLocalhost", p =>
@@ -66,46 +47,52 @@ builder.Services.AddSession(o =>
     o.IdleTimeout = TimeSpan.FromDays(30);
 });
 
-var app = builder.Build();
+await RunAsync();
 
-if (!app.Environment.IsDevelopment())
+async Task RunAsync()
 {
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
-}
-else
-{
-    using var scope = app.Services.CreateScope();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    logger.LogInformation("Vérification de la connexion gRPC au démarrage de l'application");
+    var app = builder.Build();
 
-    try
+    if (!app.Environment.IsDevelopment())
     {
+        app.UseExceptionHandler("/Home/Error");
+        app.UseHsts();
+    }
+    else
+    {
+        using var scope = app.Services.CreateScope();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
         var gateway = scope.ServiceProvider.GetRequiredService<GatewayClient>();
-        if (!gateway.IsConnected)
+
+        logger.LogInformation("Vérification de la connexion gRPC au démarrage de l'application");
+
+        try
         {
-            // appel de l’overload insecure
-            if (gateway.Connect("localhost", 4000))
-                logger.LogInformation("gRPC dev connecté");
-            else
-                logger.LogError("Échec connexion gRPC dev");
+            if (!gateway.IsConnected)
+            {
+                var success = await gateway.Connect("localhost", 4000);
+                if (success)
+                    logger.LogInformation("gRPC dev connecté");
+                else
+                    logger.LogError("Échec connexion gRPC dev");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erreur connexion gRPC: {Message}", ex.Message);
         }
     }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "Erreur connexion gRPC: {Message}", ex.Message);
-    }
+
+    app.UseCors("AllowLocalhost");
+    app.UseHttpsRedirection();
+    app.UseStaticFiles();
+    app.UseRouting();
+    app.UseAuthorization();
+    app.UseSession();
+
+    app.MapControllerRoute(
+        name: "default",
+        pattern: "{controller=Home}/{action=Welcome}/{id?}");
+
+    app.Run();
 }
-
-app.UseCors("AllowLocalhost");
-app.UseHttpsRedirection();
-app.UseStaticFiles();
-app.UseRouting();
-app.UseAuthorization();
-app.UseSession();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Home}/{action=Welcome}/{id?}");
-
-app.Run();

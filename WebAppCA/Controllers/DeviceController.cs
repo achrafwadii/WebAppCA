@@ -3,8 +3,8 @@ using System;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using Connect;                               // pour Connect.ConnectClient, ConnectRequest, etc.
-using GrpcConnectInfo = Connect.ConnectInfo; // alias pour la classe gRPC
+using Grpcconnect;                               // pour Connect.ConnectClient, ConnectRequest, etc.
+using GrpcConnectInfo = Grpcconnect.ConnectInfo; // alias pour la classe gRPC
 using LocalConnectInfo = WebAppCA.Models.ConnectInfo; // alias pour votre DTO
 using WebAppCA.Models;
 using WebAppCA.Services;

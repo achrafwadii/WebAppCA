@@ -5,6 +5,8 @@ package device;
 option go_package = "biostar/service/device";
 option java_package = "com.supremainc.sdk.device";
 option java_multiple_files = true;
+option csharp_namespace = "Grpcdevice";
+
 
 import "err.proto";
 

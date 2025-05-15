@@ -5,6 +5,7 @@ package connect;
 option go_package = "biostar/service/connect";
 option java_package = "com.supremainc.sdk.connect";
 option java_multiple_files = true;
+option csharp_namespace = "Grpcconnect";
 
 import "device.proto";
 import "err.proto";
