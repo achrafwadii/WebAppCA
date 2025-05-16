@@ -1,21 +1,39 @@
-using WebAppCA.Services;
-using System;
-using System.Threading.Tasks;
-using WebAppCA.Extensions;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
-using WebAppCA.Data;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using WebAppCA.Repositories;
 using MyApp.Services;
+using System;
+using System.Threading.Tasks;
+using WebAppCA.Data;
+using WebAppCA.Extensions;
+using WebAppCA.Repositories;
+using WebAppCA.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    // HTTPS + HTTP/2
+    options.ListenLocalhost(7211, listenOptions =>
+    {
+        listenOptions.UseHttps();
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+    });
+
+    // HTTP + HTTP/1.1
+    options.ListenLocalhost(5090, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+    });
+});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 builder.Logging.SetMinimumLevel(LogLevel.Debug);
 
+// Permettre HTTP/2 sans TLS
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
 builder.Services.AddControllersWithViews();
