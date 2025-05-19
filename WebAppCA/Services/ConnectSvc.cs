@@ -10,7 +10,7 @@ using System.Net.Http;
 
 namespace WebAppCA.Services
 {
-    public class ConnectSvc
+    public class ConnectSvc : connect.Connect.ConnectClient
     {
         private const string GATEWAY_CA_FILE = "Certs/ca.crt";
         private const string GATEWAY_ADDR = "192.168.0.2";
@@ -91,7 +91,7 @@ namespace WebAppCA.Services
         {
             if (!_isConnected)
             {
-                _logger?.LogError("gRPC not connected");
+                _logger?.LogError("gRPC not connected  ");
                 return false;
             }
             return true;
@@ -99,8 +99,6 @@ namespace WebAppCA.Services
 
         public RepeatedField<DeviceInfo> GetDeviceList()
         {
-            if (!EnsureConnected()) return new RepeatedField<DeviceInfo>();
-
             try
             {
                 var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(5));
@@ -117,8 +115,6 @@ namespace WebAppCA.Services
 
         public uint Connect(ConnectInfo connectInfo)
         {
-            if (!EnsureConnected()) return 0;
-
             try
             {
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
@@ -144,8 +140,6 @@ namespace WebAppCA.Services
 
         public RepeatedField<SearchDeviceInfo> SearchDevice()
         {
-            if (!EnsureConnected()) return new RepeatedField<SearchDeviceInfo>();
-
             try
             {
                 var request = new SearchDeviceRequest { Timeout = SEARCH_TIMEOUT_MS };
@@ -163,7 +157,6 @@ namespace WebAppCA.Services
 
         public void Disconnect(uint[] deviceIDs)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -180,7 +173,6 @@ namespace WebAppCA.Services
 
         public void DisconnectAll()
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -212,7 +204,6 @@ namespace WebAppCA.Services
 
         public void DeleteAsyncConnection(uint[] deviceIDs)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -247,7 +238,6 @@ namespace WebAppCA.Services
 
         public AcceptFilter GetAcceptFilter()
         {
-            if (!EnsureConnected()) return null;
 
             try
             {
@@ -266,7 +256,6 @@ namespace WebAppCA.Services
        
         public void SetAcceptFilter(AcceptFilter filter)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -282,7 +271,6 @@ namespace WebAppCA.Services
 
         public void SetConnectionMode(uint[] deviceIDs, ConnectionMode mode)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -299,7 +287,6 @@ namespace WebAppCA.Services
 
         public void EnableSSL(uint[] deviceIDs)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -316,7 +303,6 @@ namespace WebAppCA.Services
 
         public void DisableSSL(uint[] deviceIDs)
         {
-            if (!EnsureConnected()) return;
 
             try
             {
@@ -333,7 +319,6 @@ namespace WebAppCA.Services
 
         public IAsyncStreamReader<StatusChange> Subscribe(int queueSize)
         {
-            if (!EnsureConnected()) return null;
 
             try
             {

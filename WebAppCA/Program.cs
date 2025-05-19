@@ -10,6 +10,9 @@ using System.Threading.Tasks;
 using WebAppCA.Data;
 using WebAppCA.Extensions;
 using WebAppCA.Repositories;
+using Grpc;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using WebAppCA.Services;
 using static connect.Connect;
 
@@ -83,9 +86,9 @@ builder.Services.AddSession(o =>
 });
 
 await RunAsync();
-
 async Task RunAsync()
 {
+    builder.Services.AddGrpc();
     var app = builder.Build();
 
     if (!app.Environment.IsDevelopment())
@@ -119,6 +122,7 @@ async Task RunAsync()
     }
 
     app.UseCors("AllowLocalhost");
+    app.MapGrpcService<ConnectSvc>();
     app.UseHttpsRedirection();
     app.UseStaticFiles();
     app.UseRouting();

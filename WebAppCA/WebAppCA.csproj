@@ -17,6 +17,7 @@
 	<ItemGroup>
 		<PackageReference Include="Google.Protobuf" Version="3.31.0" />
 		<PackageReference Include="Grpc" Version="2.46.6" />
+		<PackageReference Include="Grpc.AspNetCore" Version="2.71.0" />
 		<PackageReference Include="Grpc.Core" Version="2.46.6" />
 		<PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
 		<PackageReference Include="Grpc.Net.ClientFactory" Version="2.71.0" />
@@ -38,12 +39,11 @@
 	</ItemGroup>
 	<ItemGroup>
 		<Protobuf Include="Protos\err.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\device.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\access.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\connect.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\door.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\action.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		
+		<Protobuf Include="Protos\*.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Update="Certs\*.crt">

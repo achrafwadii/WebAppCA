@@ -45,7 +45,6 @@ namespace WebAppCA.Controllers
 
             try
             {
-                EnsureGrpcConnection();
 
                 var grpcInfo = new GrpcConnectInfo
                 {
@@ -86,7 +85,6 @@ namespace WebAppCA.Controllers
 
             try
             {
-                EnsureGrpcConnection();
 
                 var dbInfo = _deviceDbService.GetDeviceById(deviceID);
                 if (dbInfo == null)
