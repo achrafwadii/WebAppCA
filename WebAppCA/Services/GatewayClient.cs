@@ -6,7 +6,7 @@ using System.Net.Http;
 using Grpc.Core;
 using Grpc.Net.Client;
 using Microsoft.Extensions.Logging;
-using Grpcconnect;
+using connect;
 using Grpcdevice;
 using static Grpcdevice.Device;
 
@@ -20,7 +20,7 @@ namespace WebAppCA.Services
         public bool IsConnected { get; private set; }
         public GrpcChannel Channel { get; private set; }
 
-        public Grpcconnect.Connect.ConnectClient ConnectClient { get; private set; }
+        public connect.Connect.ConnectClient ConnectClient { get; private set; }
         public DeviceClient DeviceClient { get; private set; }
 
         public GatewayClient(ILogger<GatewayClient> logger = null)
@@ -173,7 +173,7 @@ namespace WebAppCA.Services
 
         private void InitStubs(Channel channel)
         {
-            ConnectClient = new Grpcconnect.Connect.ConnectClient(channel);
+            ConnectClient = new connect.Connect.ConnectClient(channel);
             DeviceClient = new DeviceClient(channel);
         }
 

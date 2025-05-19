@@ -1,5 +1,5 @@
 using Grpc.Core;
-using Grpcconnect;
+using connect;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ using WebAppCA.Data;
 using WebAppCA.Extensions;
 using WebAppCA.Repositories;
 using WebAppCA.Services;
-using static Grpcconnect.Connect;
+using static connect.Connect;
 
 var builder = WebApplication.CreateBuilder(args);
 

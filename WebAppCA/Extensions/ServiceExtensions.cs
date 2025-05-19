@@ -6,7 +6,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using WebAppCA.Services;
-using static Grpcconnect.Connect;
+using static connect.Connect;
 
 namespace WebAppCA.Extensions
 {

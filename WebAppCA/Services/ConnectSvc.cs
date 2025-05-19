@@ -3,8 +3,8 @@ using System.Threading.Tasks;
 using Grpc.Core;
 using Google.Protobuf.Collections;
 using Microsoft.Extensions.Logging;
-using Grpcconnect;
-using static Grpcconnect.Connect;
+using connect;
+using static connect.Connect;
 using Grpc.Net.Client;
 using System.Net.Http;
 
@@ -12,7 +12,7 @@ namespace WebAppCA.Services
 {
     public class ConnectSvc
     {
-        private const string GATEWAY_CA_FILE = "../../../Cert/gateway/ca.crt";
+        private const string GATEWAY_CA_FILE = "Certs/ca.crt";
         private const string GATEWAY_ADDR = "192.168.0.2";
         private const int GATEWAY_PORT = 4000;
         private const int SEARCH_TIMEOUT_MS = 5000;

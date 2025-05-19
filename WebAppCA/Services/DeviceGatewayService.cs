@@ -6,7 +6,7 @@ using Grpc.Core;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Grpcconnect; // Namespace généré par G-SDK pour le service Connect
+using connect; // Namespace généré par G-SDK pour le service Connect
 
 namespace MyApp.Services
 {
@@ -37,7 +37,7 @@ namespace MyApp.Services
                 _logger.LogInformation("Connecté au Device Gateway à {Address}:{Port}", _gatewayAddress, _gatewayPort);
 
                 // Initialise le client Connect pour communiquer avec les appareils via le gateway
-                var connectClient = new Grpcconnect.Connect.ConnectClient(channel);
+                var connectClient = new connect.Connect.ConnectClient(channel);
 
                 // Souscription aux changements de statut des appareils
                 var subscribeRequest = new SubscribeStatusRequest { QueueSize = 100 };
