@@ -55,46 +55,41 @@ namespace WebAppCA.Services
             }
         }
 
-        public async Task<bool> Connect(string address, int port)
+        public bool Connect(string serverAddr, int serverPort)
         {
             try
             {
-                // Activez la prise en charge de HTTP/2 non-sécurisé
-                AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+                // Utiliser des credentials non sécurisés pour les tests
+                var credentials = ChannelCredentials.Insecure;
 
-                // Configuration pour le HTTP handler
-                var handler = new SocketsHttpHandler
-                {
-                    EnableMultipleHttp2Connections = true,
-                    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
-                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
-                    PooledConnectionIdleTimeout = TimeSpan.FromMinutes(1)
-                };
+                _channel = new Channel(serverAddr, serverPort, credentials);
 
-                var options = new GrpcChannelOptions
-                {
-                    HttpHandler = handler,
-                    DisposeHttpClient = true
-                };
-
-                // Créer le canal avec les options appropriées
-                var channel = GrpcChannel.ForAddress($"http://{address}:{port}", options);
-
-                // Tenter de se connecter
-                await channel.ConnectAsync();
-
-                Channel = channel;
-                IsConnected = true;
-
-                _logger?.LogInformation("Connexion gRPC réussie à {Address}:{Port}", address, port);
+                _logger.LogInformation("Canal gRPC créé avec succès vers {ServerAddr}:{ServerPort}", serverAddr, serverPort);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Échec de connexion gRPC à {Address}:{Port}: {Message}", address, port, ex.Message);
-                IsConnected = false;
+                _logger.LogError(ex, "Erreur lors de la connexion au serveur gRPC");
                 return false;
             }
+        }
+        public async Task<bool> ConnectWithRetryAsync(string serverAddr, int serverPort, int maxAttempts = 3)
+        {
+            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    if (Connect(serverAddr, serverPort))
+                        return true;
+
+                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Tentative {Attempt} échouée", attempt);
+                }
+            }
+            return false;
         }
         public async Task<bool> ConnectWithHttps(string address, int port, bool ignoreCertErrors = false)
         {

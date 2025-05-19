@@ -6,6 +6,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using WebAppCA.Services;
+using static Grpcconnect.Connect;
 
 namespace WebAppCA.Extensions
 {
@@ -16,9 +17,10 @@ namespace WebAppCA.Extensions
             services.AddSingleton<GatewayClient>();
             services.AddScoped<ConnectSvc>(provider =>
             {
-                var gateway = provider.GetRequiredService<GatewayClient>();
+                var client = provider.GetRequiredService<ConnectClient>();
                 var logger = provider.GetRequiredService<ILogger<ConnectSvc>>();
-                return new ConnectSvc(gateway.Channel, logger);
+
+                return new ConnectSvc(client, logger);
             });
 
             services.AddHostedService<GrpcConnectionWatchdog>();
@@ -50,10 +52,19 @@ namespace WebAppCA.Extensions
                 {
                     if (!_gatewayClient.IsConnected)
                     {
-                        _logger.LogWarning("gRPC lost, reconnecting in dev mode");
+                        _logger.LogWarning("gRPC lost, reconnecting...");
                         var address = _configuration.GetValue<string>("GrpcSettings:Address") ?? "localhost";
-                        var port = _configuration.GetValue<int>("GrpcSettings:Port", 51211);
-                        await _gatewayClient.Connect(address, port);
+                        var port = _configuration.GetValue<int>("GrpcSettings:Port", 4000);
+                        var useSSL = _configuration.GetValue<bool>("GrpcSettings:UseSSL", true);
+
+                        if (useSSL)
+                        {
+                            await _gatewayClient.ConnectSecure(address, port, true);
+                        }
+                        else
+                        {
+                            _gatewayClient.Connect(address, port);
+                        }
                     }
 
                     await Task.Delay(_interval, stoppingToken);

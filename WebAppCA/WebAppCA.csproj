@@ -17,12 +17,13 @@
 	<ItemGroup>
 		<PackageReference Include="Google.Protobuf" Version="3.31.0" />
 		<PackageReference Include="Grpc" Version="2.46.6" />
+		<PackageReference Include="Grpc.Core" Version="2.46.6" />
 		<PackageReference Include="Grpc.Net.Client" Version="2.71.0" />
+		<PackageReference Include="Grpc.Net.ClientFactory" Version="2.71.0" />
 		<PackageReference Include="Grpc.Tools" Version="2.72.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Grpc.Core" Version="2.46.6" />
 		<PackageReference Include="MartinCostello.Logging.XUnit" Version="0.5.1" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.5" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.5">
@@ -42,21 +43,15 @@
 		<Protobuf Include="Protos\connect.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\door.proto" GrpcServices="Client" ProtoRoot="Protos\" />
 		<Protobuf Include="Protos\action.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\*.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\error.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\face.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\event.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\face.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\finger.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\fingerprint.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\input.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\network.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\server.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\tna.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\user.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\time.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\config.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\display.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-		<Protobuf Include="Protos\admin.proto" GrpcServices="Client" ProtoRoot="Protos\" />
-	</ItemGroup>	
+		
+	</ItemGroup>
+	<ItemGroup>
+		<None Update="Certs\*.crt">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="Certs\*.pem">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
 </Project>

@@ -5,12 +5,14 @@ using Google.Protobuf.Collections;
 using Microsoft.Extensions.Logging;
 using Grpcconnect;
 using static Grpcconnect.Connect;
+using Grpc.Net.Client;
+using System.Net.Http;
 
 namespace WebAppCA.Services
 {
     public class ConnectSvc
     {
-        private const string GATEWAY_CA_FILE = "../../../cert/gateway/ca.crt";
+        private const string GATEWAY_CA_FILE = "../../../Cert/gateway/ca.crt";
         private const string GATEWAY_ADDR = "192.168.0.2";
         private const int GATEWAY_PORT = 4000;
         private const int SEARCH_TIMEOUT_MS = 5000;
@@ -23,11 +25,10 @@ namespace WebAppCA.Services
         public bool IsConnected => _isConnected;
         public ChannelBase Channel { get; }
 
-        public ConnectSvc(ChannelBase channel, ILogger<ConnectSvc> logger = null)
+        public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger = null)
         {
             _logger = logger;
-            Channel = channel;
-            _client = new ConnectClient(channel);
+            _client = client;
             TestInitialConnection();
         }
 
@@ -67,7 +68,25 @@ namespace WebAppCA.Services
                 return false;
             }
         }
-
+        public void Initialize(Channel channel)
+        {
+            try
+            {
+                if (channel == null)
+                {
+                    _logger.LogError("Channel is null during initialization");
+                    throw new ArgumentNullException(nameof(channel));
+                }
+                var _client = new ConnectClient(channel);
+                _client = new Connect.ConnectClient(channel);
+                _logger.LogInformation("ConnectClient initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to initialize ConnectClient");
+                throw;
+            }
+        }
         private bool EnsureConnected()
         {
             if (!_isConnected)
@@ -102,6 +121,14 @@ namespace WebAppCA.Services
 
             try
             {
+                var handler = new HttpClientHandler();
+                handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+
+                var channel = GrpcChannel.ForAddress("https://localhost:4000", new GrpcChannelOptions
+                {
+                    HttpHandler = handler
+                });
+
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
                 var response = _client.Connect(request);
                 return response.DeviceID;

@@ -1,3 +1,5 @@
+using Grpc.Core;
+using Grpcconnect;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +11,7 @@ using WebAppCA.Data;
 using WebAppCA.Extensions;
 using WebAppCA.Repositories;
 using WebAppCA.Services;
+using static Grpcconnect.Connect;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,13 +21,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenLocalhost(7211, listenOptions =>
     {
         listenOptions.UseHttps();
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
-    });
-
-    // HTTP + HTTP/1.1
-    options.ListenLocalhost(5090, listenOptions =>
-    {
-        listenOptions.Protocols = HttpProtocols.Http1AndHttp2;
+        listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
     });
 });
 
@@ -36,6 +33,25 @@ builder.Logging.SetMinimumLevel(LogLevel.Debug);
 // Permettre HTTP/2 sans TLS
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
+builder.Services.AddGrpcClient<ConnectClient>(options =>
+{
+    // Utilisez HTTPS au lieu de HTTP
+    options.Address = new Uri("https://localhost:4000");
+})
+.ConfigurePrimaryHttpMessageHandler(() =>
+{
+    var handler = new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = 
+            HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    };
+    return handler;
+});
+builder.Services.AddGrpcClient<ConnectClient>(options =>
+{
+    options.Address = new Uri("http://localhost:4000");
+});
+builder.Services.AddSingleton<GatewayClient>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
@@ -44,6 +60,7 @@ builder.Services.AddScoped<DoorService>();
 builder.Services.AddScoped<DeviceGatewayService>();
 builder.Services.AddScoped<UtilisateurRepository>();
 builder.Services.AddScoped<DashboardService>();
+
 
 builder.Services.AddGrpcServices(builder.Configuration);
 
@@ -88,7 +105,7 @@ async Task RunAsync()
         {
             if (!gateway.IsConnected)
             {
-                var success = await gateway.Connect("localhost", 4000);
+                var success =  gateway.Connect("localhost", 4000);
                 if (success)
                     logger.LogInformation("gRPC dev connecté");
                 else

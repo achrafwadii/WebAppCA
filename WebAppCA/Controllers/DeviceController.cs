@@ -124,7 +124,6 @@ namespace WebAppCA.Controllers
 
             return RedirectToAction("Index", "Home");
         }
-
         void EnsureGrpcConnection()
         {
             if (_connectSvc.IsConnected)
@@ -133,18 +132,26 @@ namespace WebAppCA.Controllers
             _logger?.LogWarning("ConnectSvc non connecté, tentative de reconnexion");
 
             var caPath = _configuration["GrpcSettings:CaCertPath"];
-            var certPath = _configuration["GrpcSettings:ClientCertPath"];
-            var keyPath = _configuration["GrpcSettings:ClientKeyPath"];
             var address = _configuration["GrpcSettings:Address"];
             var port = _configuration.GetValue<int>("GrpcSettings:Port");
+            var useSSL = _configuration.GetValue<bool>("GrpcSettings:UseSSL", false);
 
-            if (!_gatewayClient.Connect(caPath, certPath, keyPath, address, port))
+            bool connected = false;
+            if (useSSL && !string.IsNullOrEmpty(caPath) && System.IO.File.Exists(caPath))
+            {
+                connected = _gatewayClient.ConnectSecure(address, port, true).GetAwaiter().GetResult();
+            }
+            else
+            {
+                connected = _gatewayClient.Connect(address, port);
+            }
+
+            if (!connected)
                 throw new InvalidOperationException("Impossible de reconnecter le canal gRPC");
 
             if (!_connectSvc.TryReconnectAsync().GetAwaiter().GetResult())
                 throw new InvalidOperationException("Impossible de reconnecter ConnectSvc");
         }
-
         void UpsertDeviceRecord(uint deviceID, string ip, int port, bool useSsl)
         {
             var existing = _deviceDbService.GetDeviceById((int)deviceID);
