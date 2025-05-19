@@ -1,13 +1,14 @@
-﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Net.Http;
+﻿using connect;
 using Grpc.Core;
 using Grpc.Net.Client;
-using Microsoft.Extensions.Logging;
-using connect;
 using Grpcdevice;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 using static Grpcdevice.Device;
 
 namespace WebAppCA.Services
@@ -135,41 +136,96 @@ namespace WebAppCA.Services
         {
             try
             {
-                // Configuration sécurisée avec HTTPS
-                var handler = new SocketsHttpHandler();
+                // Chemin du certificat CA
+                var caFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Certs/ca.crt");
+                if (!File.Exists(caFilePath))
+                {
+                    _logger?.LogError("CA certificate file not found at: {Path}", caFilePath);
+                    return false;
+                }
 
-                // Si on souhaite ignorer les erreurs de certificat (pour les environnements de développement uniquement)
+                // Charger le certificat CA
+                var caCert = new X509Certificate2(caFilePath);
+
+                // Configuration du handler HTTP
+                var handler = new SocketsHttpHandler
+                {
+                    PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
+                    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
+                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
+                    EnableMultipleHttp2Connections = true
+                };
+
                 if (ignoreCertErrors)
                 {
                     handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
                     {
-                        RemoteCertificateValidationCallback = delegate { return true; }
+                        RemoteCertificateValidationCallback = delegate { return true; },
+                        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
+                    };
+                }
+                else
+                {
+                    var chainPolicy = new X509ChainPolicy
+                    {
+                        RevocationMode = X509RevocationMode.NoCheck
+                    };
+
+                    chainPolicy.ExtraStore.Add(caCert); // ✅ Ajouter le certificat ici
+
+                    handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
+                    {
+                        CertificateChainPolicy = chainPolicy,
+                        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
                     };
                 }
 
+                // Options du canal gRPC
                 var options = new GrpcChannelOptions
                 {
-                    HttpHandler = handler
+                    HttpHandler = handler,
+                    MaxReceiveMessageSize = MAX_SIZE_GET_LOG,
+                    MaxSendMessageSize = 10 * 1024 * 1024 // 10MB
                 };
 
+                _logger?.LogInformation("Tentative de connexion à https://{Address}:{Port}", address, port);
                 var channel = GrpcChannel.ForAddress($"https://{address}:{port}", options);
 
-                // Assure qu'on peut établir une connexion
-                await channel.ConnectAsync();
+                // Attente de connexion avec timeout
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await channel.ConnectAsync(cts.Token); // ✅ correcte ici
 
                 Channel = channel;
-                IsConnected = true;
 
-                _logger?.LogInformation("Connexion gRPC sécurisée réussie à {Address}:{Port}", address, port);
+                // Initialiser les clients
+                ConnectClient = new connect.Connect.ConnectClient(channel);
+                DeviceClient = new DeviceClient(channel);
+
+                // Test de connexion (optionnel mais utile)
+                try
+                {
+                    var request = new connect.GetDeviceListRequest();
+                    var response = await ConnectClient.GetDeviceListAsync(request,
+                        deadline: DateTime.UtcNow.AddSeconds(5));
+
+                    _logger?.LogInformation("Connexion réussie. Nombre de périphériques : {Count}", response.DeviceInfos.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning("Connexion établie mais l'appel de test a échoué : {Message}", ex.Message);
+                }
+
+                IsConnected = true;
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Échec de connexion gRPC sécurisée à {Address}:{Port}: {Message}", address, port, ex.Message);
+                _logger?.LogError(ex, "Échec de la connexion sécurisée à {Address}:{Port}: {Message}", address, port, ex.Message);
                 IsConnected = false;
                 return false;
             }
         }
+
 
         private void InitStubs(Channel channel)
         {

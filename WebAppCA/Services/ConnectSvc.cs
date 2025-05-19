@@ -121,22 +121,23 @@ namespace WebAppCA.Services
 
             try
             {
-                var handler = new HttpClientHandler();
-                handler.ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
-
-                var channel = GrpcChannel.ForAddress("https://localhost:4000", new GrpcChannelOptions
-                {
-                    HttpHandler = handler
-                });
-
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
-                var response = _client.Connect(request);
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(10));
+                var response = _client.Connect(request, opts);
+
+                _logger?.LogInformation("Successfully connected to device with ID: {DeviceID}", response.DeviceID);
                 return response.DeviceID;
             }
             catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "Connect error: {0}", ex.Status);
+                _logger?.LogError(ex, "Connect error: {Status} - {Message}", ex.Status, ex.Message);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                _isConnected = false;
+                _logger?.LogError(ex, "Unexpected error in Connect: {Message}", ex.Message);
                 return 0;
             }
         }
@@ -262,6 +263,7 @@ namespace WebAppCA.Services
             }
         }
 
+       
         public void SetAcceptFilter(AcceptFilter filter)
         {
             if (!EnsureConnected()) return;
