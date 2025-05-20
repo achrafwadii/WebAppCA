@@ -13,10 +13,12 @@ using static Grpcdevice.Device;
 
 namespace WebAppCA.Services
 {
-    public class GatewayClient
+    public class GatewayClient 
     {
         readonly ILogger<GatewayClient> _logger;
         private Channel _channel;
+        protected Channel channel;
+
         private const int MAX_SIZE_GET_LOG = 1024 * 1024 * 1024;
         public bool IsConnected { get; private set; }
         public GrpcChannel Channel { get; private set; }
@@ -74,6 +76,37 @@ namespace WebAppCA.Services
                 return false;
             }
         }
+        public bool Connect(string caFile, string serverAddr, int serverPort)
+        {
+            try
+            {
+                var channelCredentials = new SslCredentials(File.ReadAllText(caFile));
+
+#if HEAVY_PACKET_RECV_MODE
+        var channelOptions = new List<ChannelOption>();
+        channelOptions.Add(new ChannelOption("grpc.max_receive_message_length", MAX_SIZE_GET_LOG));
+        channel = new Channel(serverAddr, serverPort, channelCredentials, channelOptions);
+#else
+                channel = new Channel(serverAddr, serverPort, channelCredentials);
+#endif
+
+                // Initialiser les clients
+                InitStubs(channel);
+
+                // Mettre à jour le statut de connexion
+                IsConnected = true;
+
+                _logger?.LogInformation("Connexion gRPC établie avec succès à {ServerAddr}:{ServerPort}", serverAddr, serverPort);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Échec de la connexion à {ServerAddr}:{ServerPort}: {Message}", serverAddr, serverPort, ex.Message);
+                IsConnected = false;
+                return false;
+            }
+        }
+
         public async Task<bool> ConnectWithRetryAsync(string serverAddr, int serverPort, int maxAttempts = 3)
         {
             for (int attempt = 1; attempt <= maxAttempts; attempt++)
