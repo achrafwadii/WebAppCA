@@ -351,7 +351,6 @@ namespace WebAppCA.Extensions
                             _logger.LogWarning(ex, "Test de connexion gRPC a échoué, marquage comme déconnecté");
                             _consecutiveFailures++;
                             // Forcer la déconnexion pour que la prochaine itération tente de se reconnecter
-                            _gatewayClient.Disconnect();
                         }
                     }
                 }

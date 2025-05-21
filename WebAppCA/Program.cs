@@ -132,6 +132,5 @@ async Task RunAsync()
     app.MapControllerRoute(
         name: "default",
         pattern: "{controller=Home}/{action=Welcome}/{id?}");
-
     app.Run();
 }

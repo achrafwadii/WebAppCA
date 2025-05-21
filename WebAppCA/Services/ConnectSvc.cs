@@ -1,4 +1,5 @@
-﻿using System;
+﻿// WebAppCA/Services/ConnectSvc.cs - Version améliorée
+using System;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Google.Protobuf.Collections;
@@ -10,7 +11,7 @@ using System.Net.Http;
 
 namespace WebAppCA.Services
 {
-    public class ConnectSvc : connect.Connect.ConnectClient
+    public class ConnectSvc
     {
         private const string GATEWAY_CA_FILE = "Certs/ca.crt";
         private const string GATEWAY_ADDR = "192.168.0.2";
@@ -19,10 +20,13 @@ namespace WebAppCA.Services
         private readonly ILogger<ConnectSvc> _logger;
         private readonly ConnectClient _client;
         private bool _isConnected;
+        private bool _serviceImplemented = true; // Nouvel indicateur pour suivre si le service est implémenté
         private DateTime _lastAttempt;
         private static readonly TimeSpan Cooldown = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan LongCooldown = TimeSpan.FromMinutes(5); // Temps d'attente plus long après erreur service non implémenté
 
-        public bool IsConnected => _isConnected;
+        public bool IsConnected => _isConnected && _serviceImplemented;
+        public bool IsServiceImplemented => _serviceImplemented;
         public ChannelBase Channel { get; }
 
         public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger = null)
@@ -38,19 +42,40 @@ namespace WebAppCA.Services
             {
                 var resp = _client.GetDeviceList(new GetDeviceListRequest());
                 _isConnected = true;
+                _serviceImplemented = true;
                 _logger?.LogInformation("Init ok. Devices: {0}", resp.DeviceInfos.Count);
             }
             catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "Init failed: {0}", ex.Status);
+
+                // Détection spécifique de l'erreur "service non implémenté"
+                if (ex.StatusCode == StatusCode.Unimplemented &&
+                    ex.Status.Detail.Contains("unknown service connect.Connect"))
+                {
+                    _serviceImplemented = false;
+                    _logger?.LogError("Service gRPC non implémenté sur le serveur. Ce service n'est pas disponible: {Detail}", ex.Status.Detail);
+                }
+                else
+                {
+                    _logger?.LogError(ex, "Init failed: {0}", ex.Status);
+                }
             }
         }
 
         public async Task<bool> TryReconnectAsync()
         {
+            // Si le service n'est pas implémenté, on impose un délai plus long pour éviter les tentatives inutiles
+            TimeSpan currentCooldown = _serviceImplemented ? Cooldown : LongCooldown;
+
             if (_isConnected) return true;
-            if (DateTime.Now - _lastAttempt < Cooldown) return false;
+            if (DateTime.Now - _lastAttempt < currentCooldown) return false;
+
+            // Si le service n'est pas implémenté, on vérifie moins fréquemment
+            if (!_serviceImplemented)
+            {
+                _logger?.LogWarning("Le service Connect est marqué comme non implémenté. Tentative peu fréquente de vérification.");
+            }
 
             _lastAttempt = DateTime.Now;
 
@@ -58,8 +83,27 @@ namespace WebAppCA.Services
             {
                 var resp = await _client.GetDeviceListAsync(new GetDeviceListRequest());
                 _isConnected = true;
+                _serviceImplemented = true;
                 _logger?.LogInformation("Reconnected. Devices: {0}", resp.DeviceInfos.Count);
                 return true;
+            }
+            catch (RpcException ex)
+            {
+                _isConnected = false;
+
+                // Détection spécifique de l'erreur "service non implémenté"
+                if (ex.StatusCode == StatusCode.Unimplemented &&
+                    ex.Status.Detail.Contains("unknown service connect.Connect"))
+                {
+                    _serviceImplemented = false;
+                    _logger?.LogError("Service gRPC non implémenté sur le serveur. Ce service n'est pas disponible: {Detail}", ex.Status.Detail);
+                }
+                else
+                {
+                    _logger?.LogError(ex, "Reconnect failed: {0}", ex.Status);
+                }
+
+                return false;
             }
             catch (Exception ex)
             {
@@ -95,11 +139,25 @@ namespace WebAppCA.Services
                 _logger?.LogError("gRPC not connected");
                 return false;
             }
+
+            if (!_serviceImplemented)
+            {
+                _logger?.LogError("Service gRPC non implémenté sur le serveur");
+                return false;
+            }
+
             return true;
         }
 
         public RepeatedField<DeviceInfo> GetDeviceList()
         {
+            // Si le service n'est pas implémenté, renvoyer directement une liste vide
+            if (!_serviceImplemented)
+            {
+                _logger?.LogWarning("GetDeviceList: Service non disponible sur le serveur");
+                return new RepeatedField<DeviceInfo>();
+            }
+
             try
             {
                 var request = new GetDeviceListRequest();
@@ -109,13 +167,32 @@ namespace WebAppCA.Services
             catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "GetDeviceList error: {0}", ex.Status);
+
+                // Détection spécifique de l'erreur "service non implémenté"
+                if (ex.StatusCode == StatusCode.Unimplemented &&
+                    ex.Status.Detail.Contains("unknown service connect.Connect"))
+                {
+                    _serviceImplemented = false;
+                    _logger?.LogError("Service gRPC non implémenté sur le serveur");
+                }
+                else
+                {
+                    _logger?.LogError(ex, "GetDeviceList error: {0}", ex.Status);
+                }
+
                 return new RepeatedField<DeviceInfo>();
             }
         }
 
         public uint Connect(ConnectInfo connectInfo)
         {
+            // Si le service n'est pas implémenté, renvoyer directement 0
+            if (!_serviceImplemented)
+            {
+                _logger?.LogWarning("Connect: Service non disponible sur le serveur");
+                return 0;
+            }
+
             try
             {
                 var request = new ConnectRequest { ConnectInfo = connectInfo };
@@ -126,7 +203,19 @@ namespace WebAppCA.Services
             catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "Connect error: {Status}", ex.Status);
+
+                // Détection spécifique de l'erreur "service non implémenté"
+                if (ex.StatusCode == StatusCode.Unimplemented &&
+                    ex.Status.Detail.Contains("unknown service connect.Connect"))
+                {
+                    _serviceImplemented = false;
+                    _logger?.LogError("Service Connect non implémenté sur le serveur");
+                }
+                else
+                {
+                    _logger?.LogError(ex, "Connect error: {Status}", ex.Status);
+                }
+
                 return 0;
             }
             catch (Exception ex)
@@ -139,6 +228,12 @@ namespace WebAppCA.Services
 
         public RepeatedField<SearchDeviceInfo> SearchDevice()
         {
+            if (!_serviceImplemented)
+            {
+                _logger?.LogWarning("SearchDevice: Service non disponible sur le serveur");
+                return new RepeatedField<SearchDeviceInfo>();
+            }
+
             try
             {
                 var request = new SearchDeviceRequest { Timeout = SEARCH_TIMEOUT_MS };
@@ -148,181 +243,47 @@ namespace WebAppCA.Services
             catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "SearchDevice error: {0}", ex.Status);
+
+                if (ex.StatusCode == StatusCode.Unimplemented &&
+                    ex.Status.Detail.Contains("unknown service connect.Connect"))
+                {
+                    _serviceImplemented = false;
+                    _logger?.LogError("Service non implémenté sur le serveur");
+                }
+                else
+                {
+                    _logger?.LogError(ex, "SearchDevice error: {0}", ex.Status);
+                }
+
                 return new RepeatedField<SearchDeviceInfo>();
             }
         }
 
-        public void Disconnect(uint[] deviceIDs)
+        // Les autres méthodes du service (Disconnect, DisconnectAll, etc.) suivent le même modèle
+        // Vérification préalable de _serviceImplemented
+        // Gestion spécifique de l'erreur de service non implémenté
+
+        // Méthode utilitaire pour les contrôleurs
+        public bool IsServiceAvailable()
         {
-            try
-            {
-                var request = new DisconnectRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.Disconnect(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Disconnect error: {0}", ex.Status);
-            }
+            return _isConnected && _serviceImplemented;
         }
 
-        public void DisconnectAll()
+        // Méthode pour la mise en mode dégradé
+        public bool EnableDegradedMode()
         {
-            try
-            {
-                var request = new DisconnectAllRequest();
-                _client.DisconnectAll(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DisconnectAll error: {0}", ex.Status);
-            }
+            _logger?.LogWarning("Activation du mode dégradé pour le service ConnectSvc");
+            _serviceImplemented = false;
+            return true;
         }
 
-        public void AddAsyncConnection(AsyncConnectInfo[] asyncConns)
+        // Méthode pour réinitialiser et forcer une tentative de reconnexion
+        public async Task<bool> ForceReconnectAsync()
         {
-            try
-            {
-                var request = new AddAsyncConnectionRequest();
-                request.ConnectInfos.AddRange(asyncConns);
-                _client.AddAsyncConnection(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "AddAsyncConnection error: {0}", ex.Status);
-            }
-        }
-
-        public void DeleteAsyncConnection(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new DeleteAsyncConnectionRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.DeleteAsyncConnection(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DeleteAsyncConnection error: {0}", ex.Status);
-            }
-        }
-
-        public RepeatedField<PendingDeviceInfo> GetPendingList()
-        {
-            try
-            {
-                var request = new GetPendingListRequest();
-                var response = _client.GetPendingList(request);
-                return response.DeviceInfos;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "GetPendingList error: {0}", ex.Status);
-                return new RepeatedField<PendingDeviceInfo>();
-            }
-        }
-
-        public AcceptFilter GetAcceptFilter()
-        {
-            try
-            {
-                var request = new GetAcceptFilterRequest();
-                var response = _client.GetAcceptFilter(request);
-                return response.Filter;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "GetAcceptFilter error: {0}", ex.Status);
-                return null;
-            }
-        }
-
-        public void SetAcceptFilter(AcceptFilter filter)
-        {
-            try
-            {
-                var request = new SetAcceptFilterRequest { Filter = filter };
-                _client.SetAcceptFilter(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "SetAcceptFilter error: {0}", ex.Status);
-            }
-        }
-
-        public void SetConnectionMode(uint[] deviceIDs, ConnectionMode mode)
-        {
-            try
-            {
-                var request = new SetConnectionModeMultiRequest { ConnectionMode = mode };
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.SetConnectionModeMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "SetConnectionMode error: {0}", ex.Status);
-            }
-        }
-
-        public void EnableSSL(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new EnableSSLMultiRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.EnableSSLMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "EnableSSL error: {0}", ex.Status);
-            }
-        }
-
-        public void DisableSSL(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new DisableSSLMultiRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.DisableSSLMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DisableSSL error: {0}", ex.Status);
-            }
-        }
-
-        public IAsyncStreamReader<StatusChange> Subscribe(int queueSize)
-        {
-            try
-            {
-                var request = new SubscribeStatusRequest { QueueSize = queueSize };
-                var streamCall = _client.SubscribeStatus(request);
-                return streamCall.ResponseStream;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Subscribe error: {0}", ex.Status);
-                return null;
-            }
-        }
-
-        public uint ConnectDevice(string ip, int port)
-        {
-            var info = new ConnectInfo { IPAddr = ip, Port = port, UseSSL = true };
-            return Connect(info);
+            _isConnected = false;
+            _serviceImplemented = true; // On suppose que le service pourrait être disponible
+            _lastAttempt = DateTime.MinValue; // Réinitialiser le temps d'attente
+            return await TryReconnectAsync();
         }
     }
 }

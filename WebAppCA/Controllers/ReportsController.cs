@@ -621,74 +621,74 @@ namespace WebAppCA.Controllers
                 wsStats.Cells[row, 2].Value = stats.MostUsedAccessPoint;
                 row++;
 
-// Formatage automatique des colonnes
-wsStats.Cells.AutoFitColumns();
+                // Formatage automatique des colonnes
+                wsStats.Cells.AutoFitColumns();
 
-// Générer le fichier
-var stream = new MemoryStream();
-package.SaveAs(stream);
-stream.Position = 0;
+                // Générer le fichier
+                var stream = new MemoryStream();
+                package.SaveAs(stream);
+                stream.Position = 0;
 
-return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Rapports_Complets.xlsx");
+                return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Rapports_Complets.xlsx");
             }
         }
 
         private async Task<dynamic> GetStatisticsAsync()
-{
-    return new
-    {
-        UserCount = await _context.Utilisateurs.CountAsync(),
-        DeviceCount = await _context.Devices.CountAsync(),
-        DoorCount = await _context.PointsAcces.CountAsync(),
-        TodayAccessCount = await _context.Pointages.CountAsync(p => p.Date == DateTime.Today),
-        ActiveUsersLast7Days = await _context.Pointages
-            .Where(p => p.Date >= DateTime.Today.AddDays(-7))
-            .Select(p => p.UtilisateurId)
-            .Distinct()
-            .CountAsync(),
-        AverageAccessDuration = await _context.Pointages
-            .AverageAsync(p => p.Duree.HasValue ? p.Duree.Value.TotalHours : 0),
-        MostUsedAccessPoint = await _context.Pointages
-            .GroupBy(p => p.PointAccesId)
-            .OrderByDescending(g => g.Count())
-            .Select(g => g.First().PointAcces.Nom)
-            .FirstOrDefaultAsync()
-    };
-}
+        {
+            return new
+            {
+                UserCount = await _context.Utilisateurs.CountAsync(),
+                DeviceCount = await _context.Devices.CountAsync(),
+                DoorCount = await _context.PointsAcces.CountAsync(),
+                TodayAccessCount = await _context.Pointages.CountAsync(p => p.Date == DateTime.Today),
+                ActiveUsersLast7Days = await _context.Pointages
+                    .Where(p => p.Date >= DateTime.Today.AddDays(-7))
+                    .Select(p => p.UtilisateurId)
+                    .Distinct()
+                    .CountAsync(),
+                AverageAccessDuration = await _context.Pointages
+                    .AverageAsync(p => p.Duree.HasValue ? p.Duree.Value.TotalHours : 0),
+                MostUsedAccessPoint = await _context.Pointages
+                    .GroupBy(p => p.PointAccesId)
+                    .OrderByDescending(g => g.Count())
+                    .Select(g => g.First().PointAcces.Nom)
+                    .FirstOrDefaultAsync()
+            };
+        }
 
-#endregion
+        #endregion
 
-#region Helpers
+        #region Helpers
 
-private async Task<List<Pointage>> GetPointagesWithFilters(string dateRange, DateTime? startDate, DateTime? endDate, int? utilisateurId = null)
-{
-    IQueryable<Pointage> query = _context.Pointages
-        .Include(p => p.Utilisateur)
-        .Include(p => p.PointAcces);
+        private async Task<List<Pointage>> GetPointagesWithFilters(string dateRange, DateTime? startDate, DateTime? endDate, int? utilisateurId = null)
+        {
+            IQueryable<Pointage> query = _context.Pointages
+                .Include(p => p.Utilisateur)
+                .Include(p => p.PointAcces);
 
-    if (utilisateurId.HasValue)
-    {
-        query = query.Where(p => p.UtilisateurId == utilisateurId.Value);
-    }
+            if (utilisateurId.HasValue)
+            {
+                query = query.Where(p => p.UtilisateurId == utilisateurId.Value);
+            }
 
-    switch (dateRange)
-    {
-        case "today":
-            query = query.Where(p => p.Date == DateTime.Today);
-            break;
-        case "yesterday":
-            query = query.Where(p => p.Date == DateTime.Today.AddDays(-1));
-            break;
-        case "last7days":
-            query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
-            break;
-        case "custom" when startDate.HasValue && endDate.HasValue:
-            query = query.Where(p => p.Date >= startDate.Value && p.Date <= endDate.Value);
-            break;
-    }
+            switch (dateRange)
+            {
+                case "today":
+                    query = query.Where(p => p.Date == DateTime.Today);
+                    break;
+                case "yesterday":
+                    query = query.Where(p => p.Date == DateTime.Today.AddDays(-1));
+                    break;
+                case "last7days":
+                    query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
+                    break;
+                case "custom" when startDate.HasValue && endDate.HasValue:
+                    query = query.Where(p => p.Date >= startDate.Value && p.Date <= endDate.Value);
+                    break;
+            }
 
-    return await query.OrderByDescending(p => p.DateHeure).ToListAsync();
-}
+            return await query.OrderByDescending(p => p.DateHeure).ToListAsync();
+        }
 
         #endregion
     }

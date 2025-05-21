@@ -68,40 +68,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="col-md-6 mb-4">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Paramètres Réseau</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-check mb-3">
-                            <input asp-for="NetworkSettings.UseDhcp" class="form-check-input" id="useDhcp" />
-                            <label asp-for="NetworkSettings.UseDhcp" class="form-check-label">Utiliser DHCP</label>
-                        </div>
-
-                        <div id="static-ip-settings">
-                            <div class="mb-3">
-                                <label asp-for="NetworkSettings.IpAddress" class="form-label">Adresse IP</label>
-                                <input asp-for="NetworkSettings.IpAddress" class="form-control" />
-                                <span asp-validation-for="NetworkSettings.IpAddress" class="text-danger"></span>
-                            </div>
-
-                            <div class="mb-3">
-                                <label asp-for="NetworkSettings.SubnetMask" class="form-label">Masque de Sous-réseau</label>
-                                <input asp-for="NetworkSettings.SubnetMask" class="form-control" />
-                                <span asp-validation-for="NetworkSettings.SubnetMask" class="text-danger"></span>
-                            </div>
-
-                            <div class="mb-3">
-                                <label asp-for="NetworkSettings.Gateway" class="form-label">Passerelle</label>
-                                <input asp-for="NetworkSettings.Gateway" class="form-control" />
-                                <span asp-validation-for="NetworkSettings.Gateway" class="text-danger"></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="d-flex justify-content-end mb-4">
@@ -110,74 +76,8 @@
             </button>
         </div>
     </form>
-
-    <div class="card shadow-sm">
-        <div class="card-header bg-warning text-dark">
-            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Fonctions Avancées</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    <button type="button" class="btn btn-outline-warning w-100" data-bs-toggle="modal" data-bs-target="#resetModal">
-                        <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser aux Paramètres d'Usine
-                    </button>
-                </div>
-                <div class="col-md-6 mb-3">
-                    <button type="button" class="btn btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#debugModal">
-                        <i class="bi bi-bug"></i> Mode Débogage
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
-<!-- Reset Modal -->
-<div class="modal fade" id="resetModal" tabindex="-1" aria-labelledby="resetModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title" id="resetModalLabel">Réinitialiser aux Paramètres d'Usine</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Attention: Cette action est irréversible!
-                </div>
-                <p>Toutes les configurations personnalisées seront perdues. Êtes-vous sûr de vouloir continuer?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-warning">Confirmer la Réinitialisation</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Debug Modal -->
-<div class="modal fade" id="debugModal" tabindex="-1" aria-labelledby="debugModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="debugModalLabel">Mode Débogage</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-warning">
-                    <i class="bi bi-exclamation-triangle-fill"></i> Attention: Mode réservé aux techniciens!
-                </div>
-                <div class="mb-3">
-                    <label for="debugPassword" class="form-label">Mot de Passe Technicien</label>
-                    <input type="password" class="form-control" id="debugPassword">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-danger">Activer le Mode Débogage</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 @section Scripts {
     <script>

@@ -13,7 +13,7 @@ using static Grpcdevice.Device;
 
 namespace WebAppCA.Services
 {
-    public class GatewayClient 
+    public class GatewayClient
     {
         readonly ILogger<GatewayClient> _logger;
         private Channel _channel;
@@ -266,7 +266,7 @@ namespace WebAppCA.Services
             DeviceClient = new DeviceClient(channel);
         }
 
-        public void Disconnect()
+        /*public void Disconnect()
         {
             try
             {
@@ -290,6 +290,6 @@ namespace WebAppCA.Services
             {
                 _logger?.LogWarning(ex, "Erreur pendant la déconnexion gRPC: {Message}", ex.Message);
             }
-        }
+        }*/
     }
 }

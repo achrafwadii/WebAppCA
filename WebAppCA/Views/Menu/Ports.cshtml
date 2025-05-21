@@ -1,140 +1,93 @@
 ﻿@model PortsViewModel
 @{
-    ViewData["Title"] = "Gestion des Ports - TimeTrack";
+    ViewData["Title"] = "Ports - BioStar 2";
 }
 
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2><i class="bi bi-usb-plug"></i> Gestion des Ports</h2>
-        <a asp-controller="Menu" asp-action="Index" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Retour
+<div class="container-fluid p-0">
+    <div class="d-flex align-items-center mb-3">
+        <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left"></i>
         </a>
+        <h5 class="mb-0">Ports utilisés</h5>
     </div>
 
-    <div class="card shadow-sm">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0">Configuration du Port</h5>
-        </div>
+    <div class="card">
         <div class="card-body">
+            <h5>Configuration des ports</h5>
+
             <form asp-action="Ports" method="post">
-                @if (TempData["SuccessMessage"] != null)
-                {
-                    <div class="alert alert-success">
-                        @TempData["SuccessMessage"]
-                    </div>
-                }
-                @if (TempData["ErrorMessage"] != null)
-                {
-                    <div class="alert alert-danger">
-                        @TempData["ErrorMessage"]
-                    </div>
-                }
-
-                <div class="row mb-3">
+                <div class="row">
                     <div class="col-md-6">
-                        <div class="mb-3">
-                            <label asp-for="CurrentPort" class="form-label">Port Série</label>
-                            <select asp-for="CurrentPort" class="form-select">
-                                <option value="">-- Sélectionner un port --</option>
-                                @foreach (var port in Model.AvailablePorts)
-                                {
-                                    <option value="@port" selected="@(Model.CurrentPort == port)">@port</option>
-                                }
-                            </select>
-                            <span asp-validation-for="CurrentPort" class="text-danger"></span>
-                        </div>
+                        <!-- Colonne de gauche -->
+                        <ul class="list-unstyled">
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">ASP.NET Core HTTP</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="HttpPort" value="@Model.HttpPort" />
+                            </li>
 
-                        <div class="mb-3">
-                            <label asp-for="BaudRate" class="form-label">Débit (Baud Rate)</label>
-                            <select asp-for="BaudRate" class="form-select">
-                                <option value="9600">9600</option>
-                                <option value="19200">19200</option>
-                                <option value="38400">38400</option>
-                                <option value="57600">57600</option>
-                                <option value="115200">115200</option>
-                            </select>
-                            <span asp-validation-for="BaudRate" class="text-danger"></span>
-                        </div>
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">Device TCP Port</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="DeviceTcpPort" value="@Model.DeviceTcpPort" />
+                            </li>
+
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">Port Base de données</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="DatabasePort" value="@Model.DatabasePort" />
+                            </li>
+
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">IIS Express HTTP</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="IisExpressHttpPort" value="@Model.IisExpressHttpPort" />
+                            </li>
+
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">gRPC Port (Gateway)</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="GrpcPort" value="@Model.GrpcPort" />
+                            </li>
+
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">IIS Express HTTPS</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="IisExpressHttpsPort" value="@Model.IisExpressHttpsPort" />
+                            </li>
+                        </ul>
                     </div>
 
                     <div class="col-md-6">
-                        <div class="mb-3">
-                            <label asp-for="DataBits" class="form-label">Bits de Données</label>
-                            <select asp-for="DataBits" class="form-select">
-                                <option value="7">7</option>
-                                <option value="8">8</option>
-                            </select>
-                            <span asp-validation-for="DataBits" class="text-danger"></span>
-                        </div>
+                        <!-- Colonne de droite -->
+                        <ul class="list-unstyled">
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">ASP.NET Core HTTPS</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="HttpsPort" value="@Model.HttpsPort" />
+                            </li>
 
-                        <div class="mb-3">
-                            <label asp-for="Parity" class="form-label">Parité</label>
-                            <select asp-for="Parity" class="form-select">
-                                <option value="None">Aucune</option>
-                                <option value="Even">Paire</option>
-                                <option value="Odd">Impaire</option>
-                            </select>
-                            <span asp-validation-for="Parity" class="text-danger"></span>
-                        </div>
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">Device TLS Port</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="DeviceTlsPort" value="@Model.DeviceTlsPort" />
+                            </li>
 
-                        <div class="mb-3">
-                            <label asp-for="StopBits" class="form-label">Bits d'Arrêt</label>
-                            <select asp-for="StopBits" class="form-select">
-                                <option value="One">1</option>
-                                <option value="Two">2</option>
-                            </select>
-                            <span asp-validation-for="StopBits" class="text-danger"></span>
-                        </div>
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">UDP Port (Device Discovery)</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="DeviceUdpPort" value="@Model.DeviceUdpPort" />
+                            </li>
+
+                            <li class="mb-3 d-flex align-items-center">
+                                <span class="me-2">•</span>
+                                <span style="width: 200px;">Port Gateway Maître</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 100px;" name="MasterGatewayPort" value="@Model.MasterGatewayPort" />
+                            </li>
+                        </ul>
                     </div>
-                </div>
-
-                <div class="d-flex justify-content-between">
-                    <button type="button" id="test-connection" class="btn btn-info">
-                        <i class="bi bi-lightning"></i> Tester la Connexion
-                    </button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-save"></i> Enregistrer
-                    </button>
                 </div>
             </form>
         </div>
     </div>
-
-    <div class="card shadow-sm mt-4">
-        <div class="card-header">
-            <h5 class="mb-0">Journal de Communication</h5>
-        </div>
-        <div class="card-body">
-            <div class="bg-light p-3 rounded" style="height: 200px; overflow-y: auto">
-                <pre id="communication-log" class="mb-0">Aucune activité récente...</pre>
-            </div>
-        </div>
-    </div>
 </div>
-
-@section Scripts {
-    <script>
-        $(document).ready(function() {
-            $('#test-connection').click(function() {
-                const port = $('#CurrentPort').val();
-                if (!port) {
-                    alert('Veuillez sélectionner un port');
-                    return;
-                }
-
-                // Simulate testing connection
-                $('#communication-log').text('Test de connexion sur ' + port + '...\n');
-                setTimeout(function() {
-                    $('#communication-log').append('Ouverture du port...\n');
-                }, 500);
-                setTimeout(function() {
-                    $('#communication-log').append('Envoi de commande de test...\n');
-                }, 1000);
-                setTimeout(function() {
-                    $('#communication-log').append('Réponse reçue: OK\n');
-                    $('#communication-log').append('Connexion établie avec succès!\n');
-                }, 2000);
-            });
-        });
-    </script>
-}

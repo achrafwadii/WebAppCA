@@ -40,44 +40,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">État du Système</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-4">
-                            <div class="card border-success">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Mémoire</h5>
-                                    <div class="progress mb-3">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: 35%;"
-                                             aria-valuenow="35" aria-valuemin="0" aria-valuemax="100">
-                                            35%
-                                        </div>
-                                    </div>
-                                    <p class="card-text">1.8 GB / 4 GB Utilisés</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 mb-4">
-                            <div class="card border-info">
-                                <div class="card-body text-center">
-                                    <h5 class="card-title">Stockage</h5>
-                                    <div class="progress mb-3">
-                                        <div class="progress-bar bg-info" role="progressbar" style="width: 58%;"
-                                             aria-valuenow="58" aria-valuemin="0" aria-valuemax="100">
-                                            58%
-                                        </div>
-                                    </div>
-                                    <p class="card-text">29 GB / 50 GB Utilisés</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div class="col-md-4">
@@ -87,7 +49,7 @@
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-3">
-                        <a href="https://www.supremainc.com/en/support/technical-support.asp" class="btn btn-outline-primary" target="_blank">
+                        <a href="https://www.supremainc.com/en/support" class="btn btn-outline-primary" target="_blank">
                             <i class="bi bi-headset"></i> Support Technique
                         </a>
                         <a href="https://www.supremainc.com/en/support/download-center.asp" class="btn btn-outline-primary" target="_blank">
@@ -96,84 +58,11 @@
                         <a href="https://www.supremainc.com/en/support/faq.asp" class="btn btn-outline-primary" target="_blank">
                             <i class="bi bi-question-circle"></i> FAQ
                         </a>
-                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#contactSupportModal">
-                            <i class="bi bi-envelope"></i> Contacter le Support
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Documentation</h5>
-                </div>
-                <div class="card-body">
-                    <div class="list-group">
-                        <a href="#" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Manuel Utilisateur</h6>
-                                <small>PDF</small>
-                            </div>
-                            <small>Guide complet d'utilisation</small>
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Guide de Démarrage Rapide</h6>
-                                <small>PDF</small>
-                            </div>
-                            <small>Installation et configuration initiale</small>
-                        </a>
-                        <a href="#" class="list-group-item list-group-item-action">
-                            <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Notes de Version</h6>
-                                <small>HTML</small>
-                            </div>
-                            <small>Dernières mises à jour et corrections</small>
+                        <a href="https://www.supremainc.com/en/about/contact-us.asp" class="btn btn-outline-primary" target="_blank">
+                            <i class="bi bi-question-circle"></i> Contacter le Support
                         </a>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Contact Support Modal -->
-<div class="modal fade" id="contactSupportModal" tabindex="-1" aria-labelledby="contactSupportModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="contactSupportModalLabel">Contacter le Support Technique</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form>
-                    <div class="mb-3">
-                        <label for="supportName" class="form-label">Nom</label>
-                        <input type="text" class="form-control" id="supportName">
-                    </div>
-                    <div class="mb-3">
-                        <label for="supportEmail" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="supportEmail">
-                    </div>
-                    <div class="mb-3">
-                        <label for="supportSubject" class="form-label">Sujet</label>
-                        <input type="text" class="form-control" id="supportSubject">
-                    </div>
-                    <div class="mb-3">
-                        <label for="supportMessage" class="form-label">Description du Problème</label>
-                        <textarea class="form-control" id="supportMessage" rows="5"></textarea>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" id="attachSystemInfo">
-                        <label class="form-check-label" for="attachSystemInfo">
-                            Joindre les informations système
-                        </label>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                <button type="button" class="btn btn-danger">Envoyer</button>
             </div>
         </div>
     </div>
