@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.IO.Ports;
-using System.Collections.Generic;
-using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using WebAppCA.Models;
 
 namespace WebAppCA.Controllers
@@ -12,41 +16,36 @@ namespace WebAppCA.Controllers
         private readonly ILogger<MenuController> _logger;
         private readonly IConfiguration _configuration;
         private readonly IHostApplicationLifetime _applicationLifetime;
+        private readonly string _usersFilePath;
+        private readonly IWebHostEnvironment _env;
 
         public MenuController(
             ILogger<MenuController> logger,
             IConfiguration configuration,
-            IHostApplicationLifetime applicationLifetime)
+            IHostApplicationLifetime applicationLifetime,
+            IWebHostEnvironment env)
         {
             _logger = logger;
             _configuration = configuration;
             _applicationLifetime = applicationLifetime;
+            _env = env;
+            _usersFilePath = Path.Combine(env.ContentRootPath, "users.json");
         }
 
-        public IActionResult Index()
-        {
-            return View();
-        }
+        // Actions principales
+        public IActionResult Index() => View();
 
         [HttpGet]
         public IActionResult SystemSettings()
         {
-            var systemSettings = new SystemSettingsViewModel
+            var settings = new SystemSettingsViewModel
             {
                 DeviceName = _configuration["DeviceSettings:Name"],
-                NetworkSettings = new NetworkSettingsModel
-                {
-                    IpAddress = _configuration["NetworkSettings:IpAddress"],
-                    SubnetMask = _configuration["NetworkSettings:SubnetMask"],
-                    Gateway = _configuration["NetworkSettings:Gateway"],
-                    UseDhcp = bool.Parse(_configuration["NetworkSettings:UseDhcp"] ?? "false")
-                },
                 TimeZone = _configuration["DeviceSettings:TimeZone"],
                 Language = _configuration["DeviceSettings:Language"],
                 AutoLockTimeout = int.Parse(_configuration["DeviceSettings:AutoLockTimeout"] ?? "300")
             };
-
-            return View(systemSettings);
+            return View(settings);
         }
 
         [HttpPost]
@@ -56,14 +55,13 @@ namespace WebAppCA.Controllers
             {
                 try
                 {
-                    // Logic to save settings to configuration file or database
                     await SaveSystemSettingsAsync(model);
                     TempData["SuccessMessage"] = "Paramètres enregistrés avec succès";
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erreur lors de l'enregistrement des paramètres système");
-                    TempData["ErrorMessage"] = "Erreur lors de l'enregistrement des paramètres";
+                    _logger.LogError(ex, "Erreur sauvegarde paramètres");
+                    TempData["ErrorMessage"] = "Erreur lors de la sauvegarde";
                 }
             }
             return View(model);
@@ -72,17 +70,13 @@ namespace WebAppCA.Controllers
         [HttpGet]
         public IActionResult Ports()
         {
-            var portsViewModel = new PortsViewModel
+            var model = new PortsViewModel
             {
                 AvailablePorts = SerialPort.GetPortNames().ToList(),
-                CurrentPort = _configuration["SerialPort:Name"],
-                BaudRate = int.Parse(_configuration["SerialPort:BaudRate"] ?? "9600"),
-                DataBits = int.Parse(_configuration["SerialPort:DataBits"] ?? "8"),
-                Parity = _configuration["SerialPort:Parity"],
-                StopBits = _configuration["SerialPort:StopBits"]
+                HttpPort = int.Parse(_configuration["Ports:Http"] ?? "5000"),
+                HttpsPort = int.Parse(_configuration["Ports:Https"] ?? "5001")
             };
-
-            return View(portsViewModel);
+            return View(model);
         }
 
         [HttpPost]
@@ -92,47 +86,90 @@ namespace WebAppCA.Controllers
             {
                 try
                 {
-                    // Logic to save port settings
                     await SavePortSettingsAsync(model);
-                    TempData["SuccessMessage"] = "Configuration du port enregistrée avec succès";
+                    TempData["SuccessMessage"] = "Ports configurés avec succès";
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Erreur lors de l'enregistrement des paramètres du port");
-                    TempData["ErrorMessage"] = "Erreur lors de l'enregistrement des paramètres du port";
+                    _logger.LogError(ex, "Erreur configuration ports");
+                    TempData["ErrorMessage"] = "Erreur de configuration";
                 }
             }
-            model.AvailablePorts = SerialPort.GetPortNames().ToList();
             return View(model);
         }
 
         public IActionResult About()
         {
-            var aboutViewModel = new AboutViewModel
+            var model = new AboutViewModel
             {
-                SystemVersion = _configuration["SystemInfo:Version"],
-                FirmwareVersion = _configuration["SystemInfo:Firmware"],
-                SerialNumber = _configuration["SystemInfo:SerialNumber"],
-                InstallDate = DateTime.Parse(_configuration["SystemInfo:InstallDate"] ?? DateTime.Now.ToString()),
-                LastUpdate = DateTime.Parse(_configuration["SystemInfo:LastUpdate"] ?? DateTime.Now.ToString())
+                SystemVersion = _configuration["Version:System"],
+                FirmwareVersion = _configuration["Version:Firmware"],
+                SerialNumber = _configuration["Device:Serial"],
+                InstallDate = DateTime.Parse(_configuration["Device:InstallDate"] ?? DateTime.Now.ToString())
             };
-
-            return View(aboutViewModel);
+            return View(model);
         }
 
+        // Gestion des comptes
+        [HttpGet]
+        public IActionResult DeleteAccount()
+        {
+            var currentUser = HttpContext.Session.GetString("Username");
+            if (string.IsNullOrEmpty(currentUser))
+                return RedirectToAction("Login", "Account");
+
+            return View(new DeleteAccountViewModel { Username = currentUser });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult DeleteAccount(DeleteAccountViewModel model)
+        {
+            try
+            {
+                var currentUser = HttpContext.Session.GetString("Username");
+                if (string.IsNullOrEmpty(currentUser))
+                    return RedirectToAction("Login", "Account");
+
+                var users = LoadUsers();
+                var user = users.FirstOrDefault(u => u.Username == currentUser);
+
+                if (user == null || !VerifyPassword(model.Password, user.PasswordHash))
+                {
+                    TempData["ErrorMessage"] = "Mot de passe incorrect";
+                    return View(model);
+                }
+
+                users.RemoveAll(u => u.Username == currentUser);
+                SaveUsers(users);
+
+                HttpContext.Session.Clear();
+                Response.Cookies.Delete(".AspNetCore.Session");
+
+                TempData["SuccessMessage"] = "Compte supprimé avec succès";
+                return RedirectToAction("Login", "Account");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur suppression compte");
+                TempData["ErrorMessage"] = "Erreur critique lors de la suppression";
+                return View(model);
+            }
+        }
+
+        // Fonctions système
         [HttpPost]
         public async Task<IActionResult> BackupSystem()
         {
             try
             {
-                // Logic to perform system backup
-                var result = await PerformSystemBackupAsync();
-                return Json(new { success = true, message = "Sauvegarde effectuée avec succès", filePath = result });
+                var backupPath = await PerformSystemBackupAsync();
+                return Json(new { success = true, path = backupPath });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la sauvegarde du système");
-                return Json(new { success = false, message = "Erreur lors de la sauvegarde: " + ex.Message });
+                _logger.LogError(ex, "Erreur sauvegarde");
+                return Json(new { success = false, error = ex.Message });
             }
         }
 
@@ -141,19 +178,17 @@ namespace WebAppCA.Controllers
         {
             try
             {
-                // Schedule application restart
                 Task.Run(async () =>
                 {
-                    await Task.Delay(2000); // Allow time for response to be sent
+                    await Task.Delay(1000);
                     _applicationLifetime.StopApplication();
                 });
-
-                return Json(new { success = true, message = "Redémarrage du système en cours..." });
+                return Json(new { success = true });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors du redémarrage du système");
-                return Json(new { success = false, message = "Erreur lors du redémarrage: " + ex.Message });
+                _logger.LogError(ex, "Erreur redémarrage");
+                return Json(new { success = false });
             }
         }
 
@@ -162,88 +197,72 @@ namespace WebAppCA.Controllers
         {
             try
             {
-                // Logic to check for system updates
-                var updateInfo = await CheckSystemUpdatesAsync();
-                return Json(new
-                {
-                    success = true,
-                    updateAvailable = updateInfo.UpdateAvailable,
-                    currentVersion = updateInfo.CurrentVersion,
-                    newVersion = updateInfo.NewVersion,
-                    releaseNotes = updateInfo.ReleaseNotes
-                });
+                var updateInfo = await CheckUpdatesAsync();
+                return Json(updateInfo);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors de la vérification des mises à jour");
-                return Json(new { success = false, message = "Erreur lors de la vérification: " + ex.Message });
+                _logger.LogError(ex, "Erreur vérification MAJ");
+                return Json(new { success = false });
             }
         }
 
-        #region Private Helper Methods
+        #region Helpers
+        private List<Useer> LoadUsers()
+        {
+            if (!System.IO.File.Exists(_usersFilePath))
+                return new List<Useer>();
+
+            var json = System.IO.File.ReadAllText(_usersFilePath);
+            return JsonSerializer.Deserialize<List<Useer>>(json) ?? new List<Useer>();
+        }
+
+        private void SaveUsers(List<Useer> users)
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var json = JsonSerializer.Serialize(users, options);
+            System.IO.File.WriteAllText(_usersFilePath, json);
+        }
+
+        private bool VerifyPassword(string password, string storedHash)
+        {
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(Encoding.UTF8.GetBytes(password));
+            return BitConverter.ToString(hashBytes) == storedHash;
+        }
 
         private async Task SaveSystemSettingsAsync(SystemSettingsViewModel model)
         {
-            // Implementation to save system settings to configuration or database
-            await Task.CompletedTask;
+            // Implémentez la logique de sauvegarde réelle ici
+            await Task.Delay(500);
         }
 
         private async Task SavePortSettingsAsync(PortsViewModel model)
         {
-            // Implementation to save port settings to configuration or database
-            await Task.CompletedTask;
+            // Implémentez la logique de sauvegarde des ports ici
+            await Task.Delay(500);
         }
 
         private async Task<string> PerformSystemBackupAsync()
         {
-            // Implementation to perform system backup
-            var backupFileName = $"backup_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
-            var backupPath = Path.Combine(Directory.GetCurrentDirectory(), "Backups", backupFileName);
-
-            // Create backup logic here
-            await Task.Delay(2000); // Simulate backup process
-
-            return backupPath;
+            // Logique de sauvegarde
+            await Task.Delay(2000);
+            return "/backups/backup.zip";
         }
 
-        private async Task<UpdateInfo> CheckSystemUpdatesAsync()
+        private async Task<UpdateInfo> CheckUpdatesAsync()
         {
-            // Implementation to check for system updates
-            await Task.Delay(1000); // Simulate checking for updates
-
-            return new UpdateInfo
-            {
-                UpdateAvailable = false,
-                CurrentVersion = _configuration["SystemInfo:Version"],
-                NewVersion = "",
-                ReleaseNotes = ""
-            };
+            // Logique de vérification MAJ
+            await Task.Delay(1000);
+            return new UpdateInfo { UpdateAvailable = false };
         }
-
         #endregion
     }
-
-    #region View Models
-
-    
-
-    public class NetworkSettingsModel
-    {
-        public string IpAddress { get; set; }
-        public string SubnetMask { get; set; }
-        public string Gateway { get; set; }
-        public bool UseDhcp { get; set; }
-    }
-
-    
 
     public class UpdateInfo
     {
         public bool UpdateAvailable { get; set; }
         public string CurrentVersion { get; set; }
         public string NewVersion { get; set; }
-        public string ReleaseNotes { get; set; }
     }
-
-    #endregion
 }

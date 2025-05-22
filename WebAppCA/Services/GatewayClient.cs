@@ -14,7 +14,7 @@ using static Grpcdevice.Device;
 
 namespace WebAppCA.Services
 {
-    public class GatewayClient : IDisposable
+    public class GatewayClient 
     {
         private readonly ILogger<GatewayClient> _logger;
         private readonly SemaphoreSlim _connectionSemaphore = new(1, 1);
@@ -344,7 +344,7 @@ namespace WebAppCA.Services
             DisconnectAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        public async Task DisconnectAsync()
+        public void Disconnect()
         {
             if (_disposed) return;
 
@@ -393,14 +393,6 @@ namespace WebAppCA.Services
             {
                 _logger?.LogWarning(ex, "Error during disposal cleanup");
             }
-
-            _channelCache.Clear();
-            _connectionSemaphore?.Dispose();
-            _cancellationTokenSource?.Dispose();
-
-            // Don't dispose shared HttpClient - it's static
         }
-
-        #endregion
     }
 }

@@ -5,70 +5,9 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="bi bi-file-earmark-bar-graph"></i> Rapports</h2>
-        <div class="btn-group">
-            <button class="btn btn-primary" id="exportAllBtn">
-                <i class="bi bi-download"></i> Exporter tous
-            </button>
-            <button class="btn btn-outline-secondary" id="printAllBtn">
-                <i class="bi bi-printer"></i> Imprimer tous
-            </button>
-        </div>
-    </div>
-
-    <!-- Options de filtrage -->
-    <div class="card mb-4 shadow-sm">
-        <div class="card-header bg-white">
-            <h5 class="mb-0"><i class="bi bi-funnel"></i> Options de rapport</h5>
-        </div>
-        <div class="card-body">
-            <form id="reportFilterForm">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label for="reportType" class="form-label">Type de rapport</label>
-                        <select class="form-select" id="reportType">
-                            <option value="all" selected>Tous les rapports</option>
-                            <option value="users">Utilisateurs</option>
-                            <option value="access">Accès</option>
-                            <option value="presence">Présence</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="dateRange" class="form-label">Période</label>
-                        <select class="form-select" id="dateRange">
-                            <option value="today">Aujourd'hui</option>
-                            <option value="week">Cette semaine</option>
-                            <option value="month" selected>Ce mois</option>
-                            <option value="custom">Personnalisé</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label for="exportFormat" class="form-label">Format d'export</label>
-                        <select class="form-select" id="exportFormat">
-                            <option value="pdf" selected>PDF</option>
-                            <option value="csv">CSV</option>
-                            <option value="excel">Excel</option>
-                        </select>
-                    </div>
-                    <div class="col-md-8 date-range-custom d-none">
-                        <div class="row g-2">
-                            <div class="col">
-                                <label for="startDate" class="form-label">Date de début</label>
-                                <input type="date" class="form-control" id="startDate">
-                            </div>
-                            <div class="col">
-                                <label for="endDate" class="form-label">Date de fin</label>
-                                <input type="date" class="form-control" id="endDate">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 d-flex align-items-end">
-                        <button type="button" class="btn btn-primary w-100" id="applyFilters">
-                            <i class="bi bi-check2"></i> Appliquer
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
+        <button class="btn btn-primary">
+            <i class="bi bi-download"></i> Exporter tous
+        </button>
     </div>
 
     <div class="row">
@@ -80,16 +19,11 @@
                         <span class="badge bg-primary">Nouveau</span>
                     </div>
                     <p class="card-text">Liste complète des utilisateurs avec leurs permissions et accès.</p>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <small class="text-muted">Dernière mise à jour: <span id="usersLastUpdate">--/--/----</span></small>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-primary" data-report-type="users" data-action="download">
-                                <i class="bi bi-download"></i> Télécharger
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" data-report-type="users" data-action="print">
-                                <i class="bi bi-printer"></i> Imprimer
-                            </button>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
                     </div>
                 </div>
             </div>
@@ -100,16 +34,11 @@
                 <div class="card-body">
                     <h5 class="card-title mb-3"><i class="bi bi-door-open"></i> Rapport des accès</h5>
                     <p class="card-text">Historique complet des accès aux différentes portes.</p>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <small class="text-muted">Dernière mise à jour: <span id="accessLastUpdate">--/--/----</span></small>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-primary" data-report-type="access" data-action="download">
-                                <i class="bi bi-download"></i> Télécharger
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" data-report-type="access" data-action="print">
-                                <i class="bi bi-printer"></i> Imprimer
-                            </button>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
                     </div>
                 </div>
             </div>
@@ -120,16 +49,11 @@
                 <div class="card-body">
                     <h5 class="card-title mb-3"><i class="bi bi-calendar-check"></i> Rapport de présence</h5>
                     <p class="card-text">Synthèse des heures de présence du personnel.</p>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <small class="text-muted">Dernière mise à jour: <span id="presenceLastUpdate">--/--/----</span></small>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-primary" data-report-type="presence" data-action="download">
-                                <i class="bi bi-download"></i> Télécharger
-                            </button>
-                            <button class="btn btn-sm btn-outline-secondary" data-report-type="presence" data-action="print">
-                                <i class="bi bi-printer"></i> Imprimer
-                            </button>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Dernière mise à jour: --/--/----</small>
+                        <button class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i> Télécharger
+                        </button>
                     </div>
                 </div>
             </div>
@@ -139,16 +63,8 @@
     <div class="row">
         <div class="col-md-6 mb-4">
             <div class="card shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white">
                     <h5 class="mb-0"><i class="bi bi-graph-up"></i> Statistiques mensuelles</h5>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" id="downloadStats">
-                            <i class="bi bi-download"></i>
-                        </button>
-                        <button class="btn btn-outline-secondary" id="printStats">
-                            <i class="bi bi-printer"></i>
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
@@ -160,16 +76,8 @@
 
         <div class="col-md-6 mb-4">
             <div class="card shadow-sm">
-                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white">
                     <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Alertes et anomalies</h5>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" id="downloadAlerts">
-                            <i class="bi bi-download"></i>
-                        </button>
-                        <button class="btn btn-outline-secondary" id="printAlerts">
-                            <i class="bi bi-printer"></i>
-                        </button>
-                    </div>
                 </div>
                 <div class="card-body">
                     <div class="alert alert-info">
@@ -179,30 +87,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Modal pour l'aperçu avant impression -->
-    <div class="modal fade" id="printPreviewModal" tabindex="-1" aria-labelledby="printPreviewModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="printPreviewModalLabel">Aperçu avant impression</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="printPreviewContent">
-                    <!-- Le contenu de l'aperçu sera injecté ici -->
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                    <button type="button" class="btn btn-primary" id="confirmPrint">
-                        <i class="bi bi-printer"></i> Imprimer
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Zone cachée pour l'impression -->
-    <div id="printSection" style="display: none;"></div>
 </div>
 
 @section Styles {
@@ -214,391 +98,5 @@
             .card:hover {
                 transform: translateY(-5px);
             }
-
-         print {
-            body *
-
-        {
-            visibility: hidden;
-        }
-
-        #printSection, #printSection * {
-            visibility: visible;
-        }
-
-        #printSection {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-        }
-
-        }
-
-        .print-header {
-            text-align: center;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .print-footer {
-            text-align: center;
-            border-top: 1px solid #ddd;
-            padding-top: 15px;
-            margin-top: 20px;
-            font-size: 0.8rem;
-        }
     </style>
-}
-
-@section Scripts {
-    <script>
-        $(document).ready(function() {
-            // Initialiser la date du jour
-            const today = new Date();
-            const formattedDate = today.toLocaleDateString('fr-FR');
-
-            // Mise à jour fictive des dates pour la démo
-            $('#usersLastUpdate, #accessLastUpdate, #presenceLastUpdate').text(formattedDate);
-
-            // Gérer l'affichage du sélecteur de date personnalisée
-            $('#dateRange').change(function() {
-                if ($(this).val() === 'custom') {
-                    $('.date-range-custom').removeClass('d-none');
-                } else {
-                    $('.date-range-custom').addClass('d-none');
-                }
-            });
-
-            // Fonction pour générer un en-tête de rapport
-            function generateReportHeader(title) {
-                const now = new Date();
-                return `
-                    <div class="print-header">
-                        <h2>TimeTrack - ${title}</h2>
-                        <p>Généré le ${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR')}</p>
-                    </div>
-                `;
-            }
-
-            // Fonction pour générer un pied de page de rapport
-            function generateReportFooter() {
-                return `
-                    <div class="print-footer">
-                        <p>© ${new Date().getFullYear()} TimeTrack - Document confidentiel</p>
-                    </div>
-                `;
-            }
-
-            // Fonction pour préparer le contenu à imprimer
-            function preparePrintContent(type) {
-                let title;
-                let content;
-
-                switch(type) {
-                    case 'users':
-                        title = 'Rapport des utilisateurs';
-                        content = `
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nom</th>
-                                        <th>Email</th>
-                                        <th>Département</th>
-                                        <th>Niveau d'accès</th>
-                                        <th>Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>001</td>
-                                        <td>Jean Dupont</td>
-                                        <td>j.dupont@example.com</td>
-                                        <td>Informatique</td>
-                                        <td>Administrateur</td>
-                                        <td>Actif</td>
-                                    </tr>
-                                    <tr>
-                                        <td>002</td>
-                                        <td>Marie Martin</td>
-                                        <td>m.martin@example.com</td>
-                                        <td>Ressources Humaines</td>
-                                        <td>Standard</td>
-                                        <td>Actif</td>
-                                    </tr>
-                                    <tr>
-                                        <td>003</td>
-                                        <td>Pierre Leroy</td>
-                                        <td>p.leroy@example.com</td>
-                                        <td>Logistique</td>
-                                        <td>Standard</td>
-                                        <td>Inactif</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        `;
-                        break;
-                    case 'access':
-                        title = 'Rapport des accès';
-                        content = `
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Date/Heure</th>
-                                        <th>Utilisateur</th>
-                                        <th>Point d'accès</th>
-                                        <th>Type</th>
-                                        <th>Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>${formattedDate} 08:32</td>
-                                        <td>Jean Dupont</td>
-                                        <td>Entrée principale</td>
-                                        <td>Badge</td>
-                                        <td>Autorisé</td>
-                                    </tr>
-                                    <tr>
-                                        <td>${formattedDate} 08:45</td>
-                                        <td>Marie Martin</td>
-                                        <td>Entrée secondaire</td>
-                                        <td>Badge</td>
-                                        <td>Autorisé</td>
-                                    </tr>
-                                    <tr>
-                                        <td>${formattedDate} 09:15</td>
-                                        <td>Inconnu</td>
-                                        <td>Entrée principale</td>
-                                        <td>Badge</td>
-                                        <td>Refusé</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        `;
-                        break;
-                    case 'presence':
-                        title = 'Rapport de présence';
-                        content = `
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Utilisateur</th>
-                                        <th>Date</th>
-                                        <th>Heure d'arrivée</th>
-                                        <th>Heure de départ</th>
-                                        <th>Durée totale</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Jean Dupont</td>
-                                        <td>${formattedDate}</td>
-                                        <td>08:32</td>
-                                        <td>17:45</td>
-                                        <td>9h13</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Marie Martin</td>
-                                        <td>${formattedDate}</td>
-                                        <td>08:45</td>
-                                        <td>18:15</td>
-                                        <td>9h30</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Pierre Leroy</td>
-                                        <td>${formattedDate}</td>
-                                        <td>09:15</td>
-                                        <td>16:30</td>
-                                        <td>7h15</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        `;
-                        break;
-                    case 'all':
-                        title = 'Rapport complet';
-                        content = `
-                            <h3>Rapport des utilisateurs</h3>
-                            <table class="table table-striped mb-4">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nom</th>
-                                        <th>Email</th>
-                                        <th>Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>001</td>
-                                        <td>Jean Dupont</td>
-                                        <td>j.dupont@example.com</td>
-                                        <td>Actif</td>
-                                    </tr>
-                                    <tr>
-                                        <td>002</td>
-                                        <td>Marie Martin</td>
-                                        <td>m.martin@example.com</td>
-                                        <td>Actif</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <h3>Rapport des accès</h3>
-                            <table class="table table-striped mb-4">
-                                <thead>
-                                    <tr>
-                                        <th>Date/Heure</th>
-                                        <th>Utilisateur</th>
-                                        <th>Point d'accès</th>
-                                        <th>Statut</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>${formattedDate} 08:32</td>
-                                        <td>Jean Dupont</td>
-                                        <td>Entrée principale</td>
-                                        <td>Autorisé</td>
-                                    </tr>
-                                    <tr>
-                                        <td>${formattedDate} 08:45</td>
-                                        <td>Marie Martin</td>
-                                        <td>Entrée secondaire</td>
-                                        <td>Autorisé</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-
-                            <h3>Rapport de présence</h3>
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Utilisateur</th>
-                                        <th>Date</th>
-                                        <th>Durée totale</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td>Jean Dupont</td>
-                                        <td>${formattedDate}</td>
-                                        <td>9h13</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Marie Martin</td>
-                                        <td>${formattedDate}</td>
-                                        <td>9h30</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        `;
-                        break;
-                    default:
-                        title = 'Rapport';
-                        content = '<p>Aucune donnée disponible</p>';
-                }
-
-                return {
-                    title,
-                    fullContent: `
-                        ${generateReportHeader(title)}
-                        <div class="report-content">
-                            ${content}
-                        </div>
-                        ${generateReportFooter()}
-                    `
-                };
-            }
-
-            // Gestionnaire pour les boutons d'impression individuelle
-            $('button[data-action="print"]').click(function() {
-                const reportType = $(this).data('report-type');
-                const { title, fullContent } = preparePrintContent(reportType);
-
-                // Afficher l'aperçu avant impression
-                $('#printPreviewModalLabel').text(`Aperçu: ${title}`);
-                $('#printPreviewContent').html(fullContent);
-                $('#printPreviewModal').modal('show');
-
-                // Stocker le type de rapport pour l'impression
-                $('#confirmPrint').data('report-type', reportType);
-            });
-
-            // Gestionnaire pour le bouton d'impression après aperçu
-            $('#confirmPrint').click(function() {
-                const reportType = $(this).data('report-type');
-                const { fullContent } = preparePrintContent(reportType);
-
-                // Préparer le contenu d'impression
-                $('#printSection').html(fullContent);
-
-                // Fermer la modal et imprimer
-                $('#printPreviewModal').modal('hide');
-                setTimeout(function() {
-                    window.print();
-                }, 500);
-            });
-
-            // Gestionnaire pour "Imprimer tous"
-            $('#printAllBtn').click(function() {
-                const { title, fullContent } = preparePrintContent('all');
-
-                // Afficher l'aperçu avant impression
-                $('#printPreviewModalLabel').text(`Aperçu: ${title}`);
-                $('#printPreviewContent').html(fullContent);
-                $('#printPreviewModal').modal('show');
-
-                // Stocker le type de rapport pour l'impression
-                $('#confirmPrint').data('report-type', 'all');
-            });
-
-            // Gestionnaire pour les boutons de téléchargement
-            $('button[data-action="download"]').click(function() {
-                const reportType = $(this).data('report-type');
-                const format = $('#exportFormat').val();
-
-                // Simuler le téléchargement (à remplacer par la vraie logique)
-                alert(`Téléchargement du rapport ${reportType} au format ${format} initié.`);
-
-                // Pour une implémentation réelle, on ferait un appel AJAX vers le contrôleur
-                // $.ajax({
-                //     url: '/Home/DownloadReport',
-                //     type: 'GET',
-                //     data: {
-                //         type: reportType,
-                //         format: format,
-                //         dateRange: $('#dateRange').val(),
-                //         startDate: $('#startDate').val(),
-                //         endDate: $('#endDate').val()
-                //     },
-                //     success: function(response) {
-                //         // Handle success
-                //     }
-                // });
-            });
-
-            // Gestionnaire pour "Exporter tous"
-            $('#exportAllBtn').click(function() {
-                const format = $('#exportFormat').val();
-
-                // Simuler le téléchargement (à remplacer par la vraie logique)
-                alert(`Téléchargement de tous les rapports au format ${format} initié.`);
-            });
-
-            // Gestionnaire pour le bouton Appliquer des filtres
-            $('#applyFilters').click(function() {
-                const reportType = $('#reportType').val();
-                const dateRange = $('#dateRange').val();
-
-                // Simuler le chargement des données filtrées
-                alert(`Filtres appliqués: type=${reportType}, période=${dateRange}`);
-
-                // Pour une implémentation réelle, on ferait un appel AJAX pour rafraîchir les données
-            });
-        });
-    </script>
 }

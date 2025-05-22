@@ -136,14 +136,6 @@ namespace WebAppCA.Controllers
             return View();
         }
 
-        public IActionResult Reports()
-        {
-            return View();
-        }
-
-
-
-
         public IActionResult Welcome()
         {
             // Cette action affichera la page d'accueil sans vérifier l'authentification

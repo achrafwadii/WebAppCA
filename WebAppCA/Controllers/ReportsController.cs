@@ -279,64 +279,116 @@ namespace WebAppCA.Controllers
             if (string.IsNullOrEmpty(field))
                 return "";
 
-            if (field.Contains(',') || field.Contains('"') || field.Contains('\n'))
-            {
-                return $"\"{field.Replace("\"", "\"\"")}\"";
+                using (var range = wsStats.Cells[1, 1, 1, 2])
+                {
+                    range.Style.Font.Bold = true;
+                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+                }
+
+                var stats = await GetStatisticsAsync();
+
+                row = 2;
+                wsStats.Cells[row, 1].Value = "Nombre total d'utilisateurs";
+                wsStats.Cells[row, 2].Value = stats.UserCount;
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Nombre total de dispositifs";
+                wsStats.Cells[row, 2].Value = stats.DeviceCount;
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Nombre total de portes";
+                wsStats.Cells[row, 2].Value = stats.DoorCount;
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Nombre d'accès aujourd'hui";
+                wsStats.Cells[row, 2].Value = stats.TodayAccessCount;
+
+                wsStats.Cells[row, 1].Value = "Nombre d'accès aujourd'hui";
+                wsStats.Cells[row, 2].Value = stats.TodayAccessCount;
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Utilisateurs actifs (7 jours)";
+                wsStats.Cells[row, 2].Value = stats.ActiveUsersLast7Days;
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Durée moyenne par accès";
+                wsStats.Cells[row, 2].Value = stats.AverageAccessDuration?.TotalHours ?? 0;
+                wsStats.Cells[row, 2].Style.Numberformat.Format = "0.00\" h\"";
+                row++;
+
+                wsStats.Cells[row, 1].Value = "Point d'accès le plus utilisé";
+                wsStats.Cells[row, 2].Value = stats.MostUsedAccessPoint;
+                row++;
+
+// Formatage automatique des colonnes
+wsStats.Cells.AutoFitColumns();
+
+// Générer le fichier
+var stream = new MemoryStream();
+package.SaveAs(stream);
+stream.Position = 0;
+
+return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Rapports_Complets.xlsx");
             }
-            return field;
         }
 
-        private async Task<List<Pointage>> GetPointagesWithFilters(string dateRange, DateTime? startDate, DateTime? endDate, int? utilisateurId = null)
-        {
-            IQueryable<Pointage> query = _context.Pointages
-                .Include(p => p.Utilisateur)
-                .Include(p => p.PointAcces);
+        private async Task<dynamic> GetStatisticsAsync()
+{
+    return new
+    {
+        UserCount = await _context.Utilisateurs.CountAsync(),
+        DeviceCount = await _context.Devices.CountAsync(),
+        DoorCount = await _context.PointsAcces.CountAsync(),
+        TodayAccessCount = await _context.Pointages.CountAsync(p => p.Date == DateTime.Today),
+        ActiveUsersLast7Days = await _context.Pointages
+            .Where(p => p.Date >= DateTime.Today.AddDays(-7))
+            .Select(p => p.UtilisateurId)
+            .Distinct()
+            .CountAsync(),
+        AverageAccessDuration = await _context.Pointages
+            .AverageAsync(p => p.Duree.HasValue ? p.Duree.Value.TotalHours : 0),
+        MostUsedAccessPoint = await _context.Pointages
+            .GroupBy(p => p.PointAccesId)
+            .OrderByDescending(g => g.Count())
+            .Select(g => g.First().PointAcces.Nom)
+            .FirstOrDefaultAsync()
+    };
+}
+
+#endregion
+
+#region Helpers
+
+private async Task<List<Pointage>> GetPointagesWithFilters(string dateRange, DateTime? startDate, DateTime? endDate, int? utilisateurId = null)
+{
+    IQueryable<Pointage> query = _context.Pointages
+        .Include(p => p.Utilisateur)
+        .Include(p => p.PointAcces);
 
             if (utilisateurId.HasValue)
             {
                 query = query.Where(p => p.UtilisateurId == utilisateurId.Value);
             }
 
-            switch (dateRange?.ToLower())
-            {
-                case "today":
-                    query = query.Where(p => p.Date == DateTime.Today);
-                    break;
-                case "yesterday":
-                    query = query.Where(p => p.Date == DateTime.Today.AddDays(-1));
-                    break;
-                case "last7days":
-                    query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
-                    break;
-                case "last30days":
-                    query = query.Where(p => p.Date >= DateTime.Today.AddDays(-30));
-                    break;
-                case "custom" when startDate.HasValue && endDate.HasValue:
-                    query = query.Where(p => p.Date >= startDate.Value && p.Date <= endDate.Value);
-                    break;
-                default:
-                    query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
-                    break;
-            }
+    switch (dateRange)
+    {
+        case "today":
+            query = query.Where(p => p.Date == DateTime.Today);
+            break;
+        case "yesterday":
+            query = query.Where(p => p.Date == DateTime.Today.AddDays(-1));
+            break;
+        case "last7days":
+            query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
+            break;
+        case "custom" when startDate.HasValue && endDate.HasValue:
+            query = query.Where(p => p.Date >= startDate.Value && p.Date <= endDate.Value);
+            break;
+    }
 
-            return await query.OrderByDescending(p => p.DateHeure).ToListAsync();
-        }
-
-        private async Task<DashboardViewModel> GetStatisticsAsync()
-        {
-            var today = DateTime.Today;
-            var last7Days = today.AddDays(-7);
-
-            var viewModel = new DashboardViewModel
-            {
-                UserCount = await _context.Utilisateurs.CountAsync(),
-                DeviceCount = await _context.Devices.CountAsync(),
-                DoorCount = await _context.PointsAcces.CountAsync(),
-                TodayAccessCount = await _context.Pointages.CountAsync(p => p.Date == today)
-            };
-
-            return viewModel;
-        }
+    return await query.OrderByDescending(p => p.DateHeure).ToListAsync();
+}
 
 
         #endregion
