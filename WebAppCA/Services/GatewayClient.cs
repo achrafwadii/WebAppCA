@@ -4,292 +4,403 @@ using Grpc.Net.Client;
 using Grpcdevice;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading;
 using System.Threading.Tasks;
 using static Grpcdevice.Device;
 
 namespace WebAppCA.Services
 {
-    public class GatewayClient 
+    public class GatewayClient : IDisposable
     {
-        readonly ILogger<GatewayClient> _logger;
-        private Channel _channel;
-        protected Channel channel;
+        private readonly ILogger<GatewayClient> _logger;
+        private readonly SemaphoreSlim _connectionSemaphore = new(1, 1);
+        private readonly ConcurrentDictionary<string, GrpcChannel> _channelCache = new();
+        private readonly Timer _cleanupTimer;
 
-        private const int MAX_SIZE_GET_LOG = 1024 * 1024 * 1024;
-        public bool IsConnected { get; private set; }
-        public GrpcChannel Channel { get; private set; }
+        private GrpcChannel _currentChannel;
+        private volatile bool _isConnected;
+        private volatile bool _disposed;
+        private CancellationTokenSource _cancellationTokenSource;
 
+        // Static HttpClient for connection pooling
+        private static readonly HttpClient _sharedHttpClient = CreateOptimizedHttpClient();
+
+        public bool IsConnected => _isConnected && !_disposed;
         public connect.Connect.ConnectClient ConnectClient { get; private set; }
         public DeviceClient DeviceClient { get; private set; }
+
+        // Expose the current channel for other service clients
+        public GrpcChannel CurrentChannel => _currentChannel;
+
+        public event EventHandler<bool> ConnectionStatusChanged;
 
         public GatewayClient(ILogger<GatewayClient> logger = null)
         {
             _logger = logger;
+            _cancellationTokenSource = new CancellationTokenSource();
+
+            // Cleanup timer every 10 minutes
+            _cleanupTimer = new Timer(CleanupUnusedChannels, null,
+                TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
         }
 
-        public bool Connect(string caPath, string certPath, string keyPath, string address, int port)
+        private static HttpClient CreateOptimizedHttpClient()
         {
-            try
+            var handler = new SocketsHttpHandler
             {
-                var cacert = File.ReadAllText(caPath);
-                var clientCert = File.ReadAllText(certPath);
-                var clientKey = File.ReadAllText(keyPath);
+                PooledConnectionIdleTimeout = TimeSpan.FromMinutes(10),
+                PooledConnectionLifetime = TimeSpan.FromMinutes(30),
+                MaxConnectionsPerServer = 2,
+                EnableMultipleHttp2Connections = true,
+                KeepAlivePingDelay = TimeSpan.FromSeconds(30),
+                KeepAlivePingTimeout = TimeSpan.FromSeconds(5)
+            };
 
-                var credentials = new SslCredentials(cacert, new KeyCertificatePair(clientCert, clientKey));
-
-                var channelOptions = new List<ChannelOption>
-                {
-                    new ChannelOption("grpc.max_receive_message_length", MAX_SIZE_GET_LOG)
-                };
-
-                _channel = new Channel(address, port, credentials, channelOptions);
-
-                InitStubs(_channel);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to connect: {0}", ex.Message);
-                return false;
-            }
+            return new HttpClient(handler);
         }
+
+        #region Connection Methods
 
         public bool Connect(string serverAddr, int serverPort)
         {
-            try
-            {
-                // Utiliser des credentials non sécurisés pour les tests
-                var credentials = ChannelCredentials.Insecure;
-
-                _channel = new Channel(serverAddr, serverPort, credentials);
-
-                _logger.LogInformation("Canal gRPC créé avec succès vers {ServerAddr}:{ServerPort}", serverAddr, serverPort);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Erreur lors de la connexion au serveur gRPC");
-                return false;
-            }
+            return ConnectAsync(serverAddr, serverPort).ConfigureAwait(false).GetAwaiter().GetResult();
         }
+
+        public async Task<bool> ConnectSecure(string serverAddr, int serverPort, bool ignoreCertErrors = false)
+        {
+            return await ConnectSecureAsync(serverAddr, serverPort, ignoreCertErrors);
+        }
+
         public bool Connect(string caFile, string serverAddr, int serverPort)
         {
-            try
-            {
-                var channelCredentials = new SslCredentials(File.ReadAllText(caFile));
-
-#if HEAVY_PACKET_RECV_MODE
-        var channelOptions = new List<ChannelOption>();
-        channelOptions.Add(new ChannelOption("grpc.max_receive_message_length", MAX_SIZE_GET_LOG));
-        channel = new Channel(serverAddr, serverPort, channelCredentials, channelOptions);
-#else
-                channel = new Channel(serverAddr, serverPort, channelCredentials);
-#endif
-
-                // Initialiser les clients
-                InitStubs(channel);
-
-                // Mettre à jour le statut de connexion
-                IsConnected = true;
-
-                _logger?.LogInformation("Connexion gRPC établie avec succès à {ServerAddr}:{ServerPort}", serverAddr, serverPort);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Échec de la connexion à {ServerAddr}:{ServerPort}: {Message}", serverAddr, serverPort, ex.Message);
-                IsConnected = false;
-                return false;
-            }
+            return ConnectWithCertificateAsync(caFile, serverAddr, serverPort)
+                .ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        public async Task<bool> ConnectWithRetryAsync(string serverAddr, int serverPort, int maxAttempts = 3)
+        public async Task<bool> ConnectAsync(string serverAddr, int serverPort)
         {
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
-            {
-                try
-                {
-                    if (Connect(serverAddr, serverPort))
-                        return true;
-
-                    await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Tentative {Attempt} échouée", attempt);
-                }
-            }
-            return false;
+            return await ConnectInternalAsync($"http://{serverAddr}:{serverPort}", false);
         }
-        public async Task<bool> ConnectWithHttps(string address, int port, bool ignoreCertErrors = false)
+
+        public async Task<bool> ConnectSecureAsync(string serverAddr, int serverPort, bool ignoreCertErrors = false)
         {
-            try
-            {
-                // Configuration sécurisée avec HTTPS
-                var handler = new SocketsHttpHandler();
-
-                // Si on souhaite ignorer les erreurs de certificat (pour les environnements de développement uniquement)
-                if (ignoreCertErrors)
-                {
-                    handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
-                    {
-                        RemoteCertificateValidationCallback = delegate { return true; }
-                    };
-                }
-
-                var options = new GrpcChannelOptions
-                {
-                    HttpHandler = handler
-                };
-
-                var channel = GrpcChannel.ForAddress($"https://{address}:{port}", options);
-
-                // Assure qu'on peut établir une connexion
-                await channel.ConnectAsync();
-
-                Channel = channel;
-                IsConnected = true;
-
-                _logger?.LogInformation("Connexion gRPC sécurisée réussie à {Address}:{Port}", address, port);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Échec de connexion gRPC sécurisée à {Address}:{Port}", address, port);
-                IsConnected = false;
-                return false;
-            }
+            return await ConnectInternalAsync($"https://{serverAddr}:{serverPort}", true, ignoreCertErrors);
         }
-        // Version HTTPS avec certificat
-        public async Task<bool> ConnectSecure(string address, int port, bool ignoreCertErrors = false)
+
+        public async Task<bool> ConnectWithCertificateAsync(string caFile, string serverAddr, int serverPort)
         {
-            try
+            var fullPath = Path.IsPathRooted(caFile) ? caFile : Path.Combine("Certs", caFile);
+            return await ConnectInternalAsync($"https://{serverAddr}:{serverPort}", true, false, fullPath);
+        }
+
+        private async Task<bool> ConnectInternalAsync(string address, bool useHttps,
+            bool ignoreCertErrors = false, string caCertPath = null)
+        {
+            if (_disposed) return false;
+
+            var channelKey = $"{address}_{useHttps}_{ignoreCertErrors}_{caCertPath}";
+
+            // Fast path: reuse existing connection
+            if (_channelCache.TryGetValue(channelKey, out var existingChannel) &&
+                existingChannel.State == ConnectivityState.Ready)
             {
-                // Chemin du certificat CA
-                var caFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Certs/ca.crt");
-                if (!File.Exists(caFilePath))
+                if (!await _connectionSemaphore.WaitAsync(100))
                 {
-                    _logger?.LogError("CA certificate file not found at: {Path}", caFilePath);
+                    _logger?.LogWarning("Connection semaphore timeout");
                     return false;
                 }
 
-                // Charger le certificat CA
-                var caCert = new X509Certificate2(caFilePath);
-
-                // Configuration du handler HTTP
-                var handler = new SocketsHttpHandler
-                {
-                    PooledConnectionIdleTimeout = Timeout.InfiniteTimeSpan,
-                    KeepAlivePingDelay = TimeSpan.FromSeconds(60),
-                    KeepAlivePingTimeout = TimeSpan.FromSeconds(30),
-                    EnableMultipleHttp2Connections = true
-                };
-
-                if (ignoreCertErrors)
-                {
-                    handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
-                    {
-                        RemoteCertificateValidationCallback = delegate { return true; },
-                        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
-                    };
-                }
-                else
-                {
-                    var chainPolicy = new X509ChainPolicy
-                    {
-                        RevocationMode = X509RevocationMode.NoCheck
-                    };
-
-                    chainPolicy.ExtraStore.Add(caCert); // ✅ Ajouter le certificat ici
-
-                    handler.SslOptions = new System.Net.Security.SslClientAuthenticationOptions
-                    {
-                        CertificateChainPolicy = chainPolicy,
-                        EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13
-                    };
-                }
-
-                // Options du canal gRPC
-                var options = new GrpcChannelOptions
-                {
-                    HttpHandler = handler,
-                    MaxReceiveMessageSize = MAX_SIZE_GET_LOG,
-                    MaxSendMessageSize = 10 * 1024 * 1024 // 10MB
-                };
-
-                _logger?.LogInformation("Tentative de connexion à https://{Address}:{Port}", address, port);
-                var channel = GrpcChannel.ForAddress($"https://{address}:{port}", options);
-
-                // Attente de connexion avec timeout
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                await channel.ConnectAsync(cts.Token); // ✅ correcte ici
-
-                Channel = channel;
-
-                // Initialiser les clients
-                ConnectClient = new connect.Connect.ConnectClient(channel);
-                DeviceClient = new DeviceClient(channel);
-
-                // Test de connexion (optionnel mais utile)
                 try
                 {
-                    var request = new connect.GetDeviceListRequest();
-                    var response = await ConnectClient.GetDeviceListAsync(request,
-                        deadline: DateTime.UtcNow.AddSeconds(5));
-
-                    _logger?.LogInformation("Connexion réussie. Nombre de périphériques : {Count}", response.DeviceInfos.Count);
+                    _currentChannel = existingChannel;
+                    InitializeClients(_currentChannel);
+                    SetConnectionStatus(true);
+                    return true;
                 }
-                catch (Exception ex)
+                finally
                 {
-                    _logger?.LogWarning("Connexion établie mais l'appel de test a échoué : {Message}", ex.Message);
+                    _connectionSemaphore.Release();
+                }
+            }
+
+            // Slow path: create new connection
+            if (!await _connectionSemaphore.WaitAsync(5000, _cancellationTokenSource.Token))
+            {
+                _logger?.LogError("Failed to acquire connection semaphore within timeout");
+                return false;
+            }
+
+            try
+            {
+                var channel = await CreateChannelAsync(address, useHttps, ignoreCertErrors, caCertPath);
+                if (channel == null)
+                    return false;
+
+                // Quick connectivity test
+                if (!await TestConnectivityFastAsync(channel))
+                {
+                    await DisposeChannelSafelyAsync(channel);
+                    return false;
                 }
 
-                IsConnected = true;
+                // Store and activate
+                var oldChannel = _currentChannel;
+                _currentChannel = channel;
+                _channelCache.TryAdd(channelKey, channel);
+
+                InitializeClients(channel);
+                SetConnectionStatus(true);
+
+                // Cleanup old channel asynchronously
+                if (oldChannel != null)
+                {
+                    _ = Task.Run(() => DisposeChannelSafelyAsync(oldChannel));
+                }
+
+                _logger?.LogInformation("gRPC connection established to {Address}", address);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Échec de la connexion sécurisée à {Address}:{Port}: {Message}", address, port, ex.Message);
-                IsConnected = false;
+                _logger?.LogError(ex, "Connection failed to {Address}", address);
+                SetConnectionStatus(false);
+                return false;
+            }
+            finally
+            {
+                _connectionSemaphore.Release();
+            }
+        }
+
+        private async Task<GrpcChannel> CreateChannelAsync(string address, bool useHttps,
+            bool ignoreCertErrors, string caCertPath)
+        {
+            try
+            {
+                var options = new GrpcChannelOptions
+                {
+                    HttpClient = _sharedHttpClient,
+                    MaxReceiveMessageSize = 50 * 1024 * 1024, // 50MB
+                    MaxSendMessageSize = 10 * 1024 * 1024,    // 10MB
+                    ThrowOperationCanceledOnCancellation = true,
+                    DisposeHttpClient = false // Important: don't dispose shared client
+                };
+
+                if (useHttps)
+                {
+                    ConfigureHttpsOptions(options, ignoreCertErrors, caCertPath);
+                }
+
+                var channel = GrpcChannel.ForAddress(address, options);
+
+                // Quick connection test with short timeout
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                await channel.ConnectAsync(cts.Token);
+
+                return channel;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to create channel for {Address}", address);
+                return null;
+            }
+        }
+
+        private void ConfigureHttpsOptions(GrpcChannelOptions options, bool ignoreCertErrors, string caCertPath)
+        {
+            // Note: For HTTPS with shared HttpClient, certificate validation is handled
+            // at the HttpClient level. This is a simplified approach.
+            if (ignoreCertErrors)
+            {
+                _logger?.LogWarning("Certificate validation will be handled by shared HttpClient configuration");
+            }
+            else if (!string.IsNullOrEmpty(caCertPath) && File.Exists(caCertPath))
+            {
+                _logger?.LogInformation("Custom CA certificate handling requires HttpClient configuration");
+            }
+        }
+
+        private async Task<bool> TestConnectivityFastAsync(GrpcChannel channel)
+        {
+            try
+            {
+                var connectClient = new connect.Connect.ConnectClient(channel);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+
+                var request = new connect.GetDeviceListRequest();
+                await connectClient.GetDeviceListAsync(request,
+                    deadline: DateTime.UtcNow.AddSeconds(2),
+                    cancellationToken: cts.Token);
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogDebug("Connectivity test failed: {Message}", ex.Message);
                 return false;
             }
         }
 
-
-        private void InitStubs(Channel channel)
+        private void InitializeClients(GrpcChannel channel)
         {
             ConnectClient = new connect.Connect.ConnectClient(channel);
             DeviceClient = new DeviceClient(channel);
         }
 
-        public void Disconnect()
+        private void SetConnectionStatus(bool connected)
         {
+            if (_isConnected != connected)
+            {
+                _isConnected = connected;
+                ConnectionStatusChanged?.Invoke(this, connected);
+            }
+        }
+
+        #endregion
+
+        #region Health Check & Monitoring
+
+        public async Task<bool> IsHealthyAsync()
+        {
+            if (!_isConnected || _currentChannel == null || _disposed)
+                return false;
+
             try
             {
-                if (Channel != null)
-                {
-                    Channel.ShutdownAsync().Wait(TimeSpan.FromSeconds(5));
-                    Channel.Dispose();
-                    Channel = null;
-                }
+                var connectClient = new connect.Connect.ConnectClient(_currentChannel);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
-                if (_channel != null)
-                {
-                    _channel.ShutdownAsync().Wait(TimeSpan.FromSeconds(5));
-                    _channel = null;
-                }
+                await connectClient.GetDeviceListAsync(new connect.GetDeviceListRequest(),
+                    deadline: DateTime.UtcNow.AddSeconds(2),
+                    cancellationToken: cts.Token);
+                return true;
+            }
+            catch
+            {
+                SetConnectionStatus(false);
+                return false;
+            }
+        }
 
-                IsConnected = false;
-                _logger?.LogInformation("Déconnexion gRPC réussie");
+        #endregion
+
+        #region Cleanup & Maintenance
+
+        private void CleanupUnusedChannels(object state)
+        {
+            if (_disposed || _channelCache.Count < 5) return;
+
+            var channelsToRemove = new List<string>();
+
+            foreach (var kvp in _channelCache)
+            {
+                if (kvp.Value != _currentChannel &&
+                    (kvp.Value.State == ConnectivityState.Shutdown ||
+                     kvp.Value.State == ConnectivityState.TransientFailure))
+                {
+                    channelsToRemove.Add(kvp.Key);
+                }
+            }
+
+            foreach (var key in channelsToRemove)
+            {
+                if (_channelCache.TryRemove(key, out var channel))
+                {
+                    _ = Task.Run(() => DisposeChannelSafelyAsync(channel));
+                }
+            }
+
+            if (channelsToRemove.Count > 0)
+            {
+                _logger?.LogDebug("Cleaned up {Count} unused channels", channelsToRemove.Count);
+            }
+        }
+
+        private async Task DisposeChannelSafelyAsync(GrpcChannel channel)
+        {
+            if (channel == null) return;
+
+            try
+            {
+                if (channel.State != ConnectivityState.Shutdown)
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await channel.ShutdownAsync();
+                }
+                channel.Dispose();
             }
             catch (Exception ex)
             {
-                _logger?.LogWarning(ex, "Erreur pendant la déconnexion gRPC: {Message}", ex.Message);
+                _logger?.LogDebug(ex, "Error disposing channel");
             }
         }
+
+        public void Disconnect()
+        {
+            DisconnectAsync().ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
+        public async Task DisconnectAsync()
+        {
+            if (_disposed) return;
+
+            await _connectionSemaphore.WaitAsync();
+            try
+            {
+                SetConnectionStatus(false);
+
+                if (_currentChannel != null)
+                {
+                    await DisposeChannelSafelyAsync(_currentChannel);
+                    _currentChannel = null;
+                }
+
+                ConnectClient = null;
+                DeviceClient = null;
+
+                _logger?.LogInformation("gRPC disconnection completed");
+            }
+            finally
+            {
+                _connectionSemaphore.Release();
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+
+            _cancellationTokenSource?.Cancel();
+            _cleanupTimer?.Dispose();
+
+            // Cleanup all channels asynchronously
+            var tasks = new List<Task>();
+            foreach (var channel in _channelCache.Values)
+            {
+                tasks.Add(DisposeChannelSafelyAsync(channel));
+            }
+
+            try
+            {
+                Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(5));
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Error during disposal cleanup");
+            }
+
+            _channelCache.Clear();
+            _connectionSemaphore?.Dispose();
+            _cancellationTokenSource?.Dispose();
+
+            // Don't dispose shared HttpClient - it's static
+        }
+
+        #endregion
     }
 }

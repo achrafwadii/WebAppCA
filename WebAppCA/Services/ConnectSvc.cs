@@ -1,328 +1,287 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Google.Protobuf.Collections;
 using Microsoft.Extensions.Logging;
 using connect;
 using static connect.Connect;
-using Grpc.Net.Client;
-using System.Net.Http;
+using System.Collections.Concurrent;
 
 namespace WebAppCA.Services
 {
-    public class ConnectSvc : connect.Connect.ConnectClient
+    public class ConnectSvc : IDisposable
     {
-        private const string GATEWAY_CA_FILE = "Certs/ca.crt";
-        private const string GATEWAY_ADDR = "192.168.0.2";
-        private const int GATEWAY_PORT = 4000;
-        private const int SEARCH_TIMEOUT_MS = 5000;
-        private readonly ILogger<ConnectSvc> _logger;
         private readonly ConnectClient _client;
-        private bool _isConnected;
-        private DateTime _lastAttempt;
-        private static readonly TimeSpan Cooldown = TimeSpan.FromSeconds(5);
+        private readonly ILogger<ConnectSvc> _logger;
 
-        public bool IsConnected => _isConnected;
-        public ChannelBase Channel { get; }
+        // Expose the client for other services that need direct access
+        public ConnectClient Client => _isConnected ? _client : null;
+        private readonly SemaphoreSlim _operationSemaphore = new(10, 10); // Increased concurrency
+        private readonly ConcurrentDictionary<string, object> _operationCache = new();
+        private readonly Timer _cacheCleanupTimer;
 
-        public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger = null)
+        private volatile bool _isConnected;
+        private volatile bool _disposed;
+        private CancellationTokenSource _cancellationTokenSource;
+
+        public bool IsConnected => _isConnected && !_disposed;
+        public event EventHandler<bool> ConnectionStatusChanged;
+
+        public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger)
         {
-            _logger = logger;
-            _client = client;
-            TestInitialConnection();
+            _client = client ?? throw new ArgumentNullException(nameof(client));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _cancellationTokenSource = new CancellationTokenSource();
+
+            // Cache cleanup every 5 minutes
+            _cacheCleanupTimer = new Timer(CleanupCache, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
+
+            // Quick connection test without blocking
+            _ = Task.Run(TestConnectionAsync);
         }
 
-        private void TestInitialConnection()
+        private async Task TestConnectionAsync()
         {
             try
             {
-                var resp = _client.GetDeviceList(new GetDeviceListRequest());
-                _isConnected = true;
-                _logger?.LogInformation("Init ok. Devices: {0}", resp.DeviceInfos.Count);
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                var request = new GetDeviceListRequest();
+                var callOptions = new CallOptions(
+                    deadline: DateTime.UtcNow.AddSeconds(2),
+                    cancellationToken: cts.Token
+                );
+
+                await _client.GetDeviceListAsync(request, callOptions);
+                SetConnectionStatus(true);
             }
-            catch (RpcException ex)
+            catch
             {
-                _isConnected = false;
-                _logger?.LogError(ex, "Init failed: {0}", ex.Status);
+                SetConnectionStatus(false);
+            }
+        }
+
+        private void SetConnectionStatus(bool connected)
+        {
+            if (_isConnected != connected)
+            {
+                _isConnected = connected;
+                ConnectionStatusChanged?.Invoke(this, connected);
+            }
+        }
+
+        private void CleanupCache(object state)
+        {
+            if (_operationCache.Count > 1000) // Only cleanup if cache is large
+            {
+                _operationCache.Clear();
             }
         }
 
         public async Task<bool> TryReconnectAsync()
         {
-            if (_isConnected) return true;
-            if (DateTime.Now - _lastAttempt < Cooldown) return false;
-
-            _lastAttempt = DateTime.Now;
+            if (_disposed || _isConnected) return _isConnected;
 
             try
             {
-                var resp = await _client.GetDeviceListAsync(new GetDeviceListRequest());
-                _isConnected = true;
-                _logger?.LogInformation("Reconnected. Devices: {0}", resp.DeviceInfos.Count);
-                return true;
+                await TestConnectionAsync();
+                return _isConnected;
             }
-            catch (Exception ex)
+            catch
             {
-                _isConnected = false;
-                _logger?.LogError(ex, "Reconnect failed: {0}", ex.Message);
                 return false;
             }
         }
 
-        public void Initialize(Channel channel)
+        private async Task<T> ExecuteOperationAsync<T>(
+            Func<ConnectClient, CallOptions, Task<T>> operation,
+            int timeoutMs = 10000,
+            T defaultValue = default(T),
+            string cacheKey = null)
         {
+            if (_disposed) return defaultValue;
+
+            // Check cache first
+            if (!string.IsNullOrEmpty(cacheKey) &&
+                _operationCache.TryGetValue(cacheKey, out var cachedResult) &&
+                cachedResult is T cached)
+            {
+                return cached;
+            }
+
+            if (!await _operationSemaphore.WaitAsync(100, _cancellationTokenSource.Token))
+            {
+                _logger.LogWarning("Operation timeout - too many concurrent requests");
+                return defaultValue;
+            }
+
             try
             {
-                if (channel == null)
+                if (!_isConnected)
                 {
-                    _logger?.LogError("Channel is null during initialization");
-                    throw new ArgumentNullException(nameof(channel));
+                    _logger.LogWarning("Client not connected, returning default value");
+                    return defaultValue;
                 }
 
-                _logger?.LogInformation("ConnectClient initialized successfully");
+                var callOptions = new CallOptions(
+                    deadline: DateTime.UtcNow.AddMilliseconds(timeoutMs),
+                    cancellationToken: _cancellationTokenSource.Token
+                );
+
+                var result = await operation(_client, callOptions);
+
+                // Cache successful results
+                if (!string.IsNullOrEmpty(cacheKey) && result != null)
+                {
+                    _operationCache.TryAdd(cacheKey, result);
+                }
+
+                return result;
+            }
+            catch (RpcException ex) when (ex.StatusCode == StatusCode.Unavailable ||
+                                         ex.StatusCode == StatusCode.DeadlineExceeded ||
+                                         ex.StatusCode == StatusCode.Cancelled)
+            {
+                SetConnectionStatus(false);
+                _logger.LogWarning("RPC operation failed: {Status}", ex.Status);
+                return defaultValue;
+            }
+            catch (OperationCanceledException)
+            {
+                _logger.LogDebug("Operation cancelled");
+                return defaultValue;
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Failed to initialize ConnectClient");
-                throw;
+                _logger.LogError(ex, "Unexpected error during operation");
+                return defaultValue;
             }
-        }
-
-        private bool EnsureConnected()
-        {
-            if (!_isConnected)
+            finally
             {
-                _logger?.LogError("gRPC not connected");
-                return false;
+                _operationSemaphore.Release();
             }
-            return true;
         }
 
+        // Optimized public methods
+        public async Task<RepeatedField<DeviceInfo>> GetDeviceListAsync()
+        {
+            var cacheKey = $"devicelist_{DateTime.UtcNow.Minute}"; // Cache for 1 minute
+            return await ExecuteOperationAsync(
+                async (client, opts) =>
+                {
+                    var request = new GetDeviceListRequest();
+                    var response = await client.GetDeviceListAsync(request, opts);
+                    return response.DeviceInfos;
+                },
+                timeoutMs: 5000,
+                defaultValue: new RepeatedField<DeviceInfo>(),
+                cacheKey: cacheKey
+            );
+        }
+
+        public async Task<uint> ConnectAsync(ConnectInfo connectInfo)
+        {
+            return await ExecuteOperationAsync(
+                async (client, opts) =>
+                {
+                    var request = new ConnectRequest { ConnectInfo = connectInfo };
+                    var response = await client.ConnectAsync(request, opts);
+                    _logger.LogInformation("Device connected with ID: {DeviceID}", response.DeviceID);
+                    return response.DeviceID;
+                },
+                timeoutMs: 8000,
+                defaultValue: 0u
+            );
+        }
+
+        public async Task<RepeatedField<SearchDeviceInfo>> SearchDeviceAsync(int timeoutMs = 5000)
+        {
+            return await ExecuteOperationAsync(
+                async (client, opts) =>
+                {
+                    var request = new SearchDeviceRequest { Timeout = (uint)timeoutMs };
+                    var response = await client.SearchDeviceAsync(request, opts);
+                    return response.DeviceInfos;
+                },
+                timeoutMs: timeoutMs + 1000,
+                defaultValue: new RepeatedField<SearchDeviceInfo>()
+            );
+        }
+
+        public async Task DisconnectAsync(uint[] deviceIDs)
+        {
+            if (deviceIDs?.Length == 0) return;
+
+            await ExecuteOperationAsync(
+                async (client, opts) =>
+                {
+                    var request = new DisconnectRequest();
+                    request.DeviceIDs.AddRange(deviceIDs);
+                    await client.DisconnectAsync(request, opts);
+                    return true;
+                },
+                timeoutMs: 5000
+            );
+        }
+
+        public async Task DisconnectAllAsync()
+        {
+            await ExecuteOperationAsync(
+                async (client, opts) =>
+                {
+                    await client.DisconnectAllAsync(new DisconnectAllRequest(), opts);
+                    return true;
+                },
+                timeoutMs: 5000
+            );
+        }
+
+        public async Task<uint> ConnectDeviceAsync(string ip, int port, bool useSSL = false)
+        {
+            var info = new ConnectInfo
+            {
+                IPAddr = ip,
+                Port = port,
+                UseSSL = useSSL
+            };
+            return await ConnectAsync(info);
+        }
+
+        // Synchronous methods for backward compatibility (non-blocking)
         public RepeatedField<DeviceInfo> GetDeviceList()
         {
-            try
+            var task = GetDeviceListAsync();
+            if (task.Wait(3000)) // 3 second timeout
             {
-                var request = new GetDeviceListRequest();
-                var response = _client.GetDeviceList(request);
-                return response.DeviceInfos;
+                return task.Result;
             }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "GetDeviceList error: {0}", ex.Status);
-                return new RepeatedField<DeviceInfo>();
-            }
+            _logger.LogWarning("GetDeviceList timed out, returning empty list");
+            return new RepeatedField<DeviceInfo>();
         }
 
         public uint Connect(ConnectInfo connectInfo)
         {
-            try
+            var task = ConnectAsync(connectInfo);
+            if (task.Wait(5000)) // 5 second timeout
             {
-                var request = new ConnectRequest { ConnectInfo = connectInfo };
-                var response = _client.Connect(request);
-                _logger?.LogInformation("Successfully connected to device with ID: {DeviceID}", response.DeviceID);
-                return response.DeviceID;
+                return task.Result;
             }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Connect error: {Status}", ex.Status);
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Unexpected error in Connect: {Message}", ex.Message);
-                return 0;
-            }
+            _logger.LogWarning("Connect operation timed out");
+            return 0u;
         }
 
-        public RepeatedField<SearchDeviceInfo> SearchDevice()
+        public void Dispose()
         {
-            try
-            {
-                var request = new SearchDeviceRequest { Timeout = SEARCH_TIMEOUT_MS };
-                var response = _client.SearchDevice(request);
-                return response.DeviceInfos;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "SearchDevice error: {0}", ex.Status);
-                return new RepeatedField<SearchDeviceInfo>();
-            }
-        }
+            if (_disposed) return;
+            _disposed = true;
 
-        public void Disconnect(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new DisconnectRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.Disconnect(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Disconnect error: {0}", ex.Status);
-            }
-        }
+            _cancellationTokenSource?.Cancel();
+            _cacheCleanupTimer?.Dispose();
 
-        public void DisconnectAll()
-        {
-            try
-            {
-                var request = new DisconnectAllRequest();
-                _client.DisconnectAll(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DisconnectAll error: {0}", ex.Status);
-            }
-        }
-
-        public void AddAsyncConnection(AsyncConnectInfo[] asyncConns)
-        {
-            try
-            {
-                var request = new AddAsyncConnectionRequest();
-                request.ConnectInfos.AddRange(asyncConns);
-                _client.AddAsyncConnection(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "AddAsyncConnection error: {0}", ex.Status);
-            }
-        }
-
-        public void DeleteAsyncConnection(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new DeleteAsyncConnectionRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.DeleteAsyncConnection(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DeleteAsyncConnection error: {0}", ex.Status);
-            }
-        }
-
-        public RepeatedField<PendingDeviceInfo> GetPendingList()
-        {
-            try
-            {
-                var request = new GetPendingListRequest();
-                var response = _client.GetPendingList(request);
-                return response.DeviceInfos;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "GetPendingList error: {0}", ex.Status);
-                return new RepeatedField<PendingDeviceInfo>();
-            }
-        }
-
-        public AcceptFilter GetAcceptFilter()
-        {
-            try
-            {
-                var request = new GetAcceptFilterRequest();
-                var response = _client.GetAcceptFilter(request);
-                return response.Filter;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "GetAcceptFilter error: {0}", ex.Status);
-                return null;
-            }
-        }
-
-        public void SetAcceptFilter(AcceptFilter filter)
-        {
-            try
-            {
-                var request = new SetAcceptFilterRequest { Filter = filter };
-                _client.SetAcceptFilter(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "SetAcceptFilter error: {0}", ex.Status);
-            }
-        }
-
-        public void SetConnectionMode(uint[] deviceIDs, ConnectionMode mode)
-        {
-            try
-            {
-                var request = new SetConnectionModeMultiRequest { ConnectionMode = mode };
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.SetConnectionModeMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "SetConnectionMode error: {0}", ex.Status);
-            }
-        }
-
-        public void EnableSSL(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new EnableSSLMultiRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.EnableSSLMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "EnableSSL error: {0}", ex.Status);
-            }
-        }
-
-        public void DisableSSL(uint[] deviceIDs)
-        {
-            try
-            {
-                var request = new DisableSSLMultiRequest();
-                request.DeviceIDs.AddRange(deviceIDs);
-                _client.DisableSSLMulti(request);
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "DisableSSL error: {0}", ex.Status);
-            }
-        }
-
-        public IAsyncStreamReader<StatusChange> Subscribe(int queueSize)
-        {
-            try
-            {
-                var request = new SubscribeStatusRequest { QueueSize = queueSize };
-                var streamCall = _client.SubscribeStatus(request);
-                return streamCall.ResponseStream;
-            }
-            catch (RpcException ex)
-            {
-                _isConnected = false;
-                _logger?.LogError(ex, "Subscribe error: {0}", ex.Status);
-                return null;
-            }
-        }
-
-        public uint ConnectDevice(string ip, int port)
-        {
-            var info = new ConnectInfo { IPAddr = ip, Port = port, UseSSL = true };
-            return Connect(info);
+            // Don't wait for semaphore release in dispose
+            _operationSemaphore?.Dispose();
+            _cancellationTokenSource?.Dispose();
+            _operationCache?.Clear();
         }
     }
 }
