@@ -59,7 +59,6 @@ namespace WebAppCA.Controllers
             {
                 return RedirectToAction("Login", "Account");
             }
-
             var model = new Utilisateur
             {
                 Status = "Actif",
@@ -78,28 +77,30 @@ namespace WebAppCA.Controllers
         // POST: Création d'un utilisateur
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create(Utilisateur model, IFormCollection form)
+        public async Task<IActionResult> Create(Utilisateur model)
         {
-            if (HttpContext.Session.GetString("IsAuthenticated") != "true")
+            // Validation et traitement des nouvelles propriétés
+            if (!string.IsNullOrEmpty(model.CardNumber))
             {
-                return RedirectToAction("Login", "Account");
+                // Valider le format de la carte
+                if (!IsValidCardNumber(model.CardNumber))
+                {
+                    ModelState.AddModelError("CardNumber", "Format de carte invalide");
+                }
             }
-
-            // Récupérer les valeurs des switches et cases à cocher
-            model.Status = form["statusSwitch"] == "on" ? "Actif" : "Inactif";
-            model.UseCustomAuthMode = form["authModeSwitch"] != "on"; // Inverser car le switch est "utiliser le mode par défaut"
 
             if (ModelState.IsValid)
             {
-                // Enregistrer l'utilisateur dans la base de données
-                model.CreatedAt = DateTime.Now;
                 await _repository.AddAsync(model);
-
                 TempData["Message"] = "Utilisateur créé avec succès";
                 return RedirectToAction(nameof(Index));
             }
-
             return View(model);
+        }
+
+        private bool IsValidCardNumber(string number)
+        {
+            return !string.IsNullOrEmpty(number) && number.Length >= 8 && number.All(char.IsDigit);
         }
 
         // GET: Formulaire d'édition d'un utilisateur

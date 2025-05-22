@@ -1,0 +1,89 @@
+﻿@{
+    ViewData["Title"] = "Reports - TimeNeT";
+}
+
+<div class="container">
+    <h1 class="mb-4">Reports Generation</h1>
+
+    <div class="row">
+        <!-- Users Report -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-users me-2"></i>Users Report
+                </div>
+                <div class="card-body text-center">
+                    <a asp-action="UserReport" asp-route-format="csv" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </a>
+                    <a asp-action="UserReport" asp-route-format="pdf" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-file-pdf me-1"></i>PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Presence Report -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-calendar-check me-2"></i>Presence Report
+                </div>
+                <div class="card-body">
+                    <form asp-action="PresenceReport" method="get">
+                        <div class="mb-3">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" name="startDate" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">End Date</label>
+                            <input type="date" name="endDate" class="form-control form-control-sm" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="format" value="csv" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-file-csv me-1"></i>CSV
+                            </button>
+                            <button type="submit" name="format" value="pdf" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Devices Report -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-microchip me-2"></i>Devices Report
+                </div>
+                <div class="card-body text-center">
+                    <a asp-action="DeviceReport" asp-route-format="csv" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </a>
+                    <a asp-action="DeviceReport" asp-route-format="pdf" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-file-pdf me-1"></i>PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doors Report -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-dark">
+                    <i class="fas fa-door-open me-2"></i>Doors Report
+                </div>
+                <div class="card-body text-center">
+                    <a asp-action="PorteReport" asp-route-format="csv" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </a>
+                    <a asp-action="PorteReport" asp-route-format="pdf" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-file-pdf me-1"></i>PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

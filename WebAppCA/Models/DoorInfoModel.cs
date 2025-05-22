@@ -7,7 +7,7 @@ namespace WebAppCA.Models
 
     public class DoorInfoModel
     {
-        public uint DoorID { get; set; }
+        public long DoorID { get; set; }
 
         [Required(ErrorMessage = "Le nom de la porte est requis")]
         [Display(Name = "Nom de la porte")]
@@ -36,6 +36,7 @@ namespace WebAppCA.Models
 
         [Display(Name = "Dernière activité")]
         public DateTime? LastActivity { get; set; }
+        public bool EstOuverte { get; internal set; }
     }
 
 

@@ -1,18 +1,22 @@
-﻿// WebAppCA/Services/ConnectSvc.cs - Version améliorée
-using System;
-using System.Threading;
+﻿using System;
 using System.Threading.Tasks;
 using Grpc.Core;
 using Google.Protobuf.Collections;
 using Microsoft.Extensions.Logging;
 using connect;
 using static connect.Connect;
-using System.Collections.Concurrent;
+using Grpc.Net.Client;
+using System.Net.Http;
 
 namespace WebAppCA.Services
 {
     public class ConnectSvc : connect.Connect.ConnectClient
     {
+        private const string GATEWAY_CA_FILE = "Certs/ca.crt";
+        private const string GATEWAY_ADDR = "192.168.0.2";
+        private const int GATEWAY_PORT = 4000;
+        private const int SEARCH_TIMEOUT_MS = 5000;
+        private readonly ILogger<ConnectSvc> _logger;
         private readonly ConnectClient _client;
         private bool _isConnected;
         private DateTime _lastAttempt;
@@ -21,9 +25,12 @@ namespace WebAppCA.Services
         public bool IsConnected => _isConnected;
         public ChannelBase Channel { get; }
 
-        private volatile bool _isConnected;
-        private volatile bool _disposed;
-        private CancellationTokenSource _cancellationTokenSource;
+        public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger = null)
+        {
+            _logger = logger;
+            _client = client;
+            TestInitialConnection();
+        }
 
         private void TestInitialConnection()
         {
@@ -40,7 +47,7 @@ namespace WebAppCA.Services
             }
         }
 
-        public ConnectSvc(ConnectClient client, ILogger<ConnectSvc> logger)
+        public async Task<bool> TryReconnectAsync()
         {
             if (_isConnected) return true;
             if (DateTime.Now - _lastAttempt < Cooldown) return false;
@@ -61,42 +68,42 @@ namespace WebAppCA.Services
                 return false;
             }
         }
-
-        private async Task TestConnectionAsync()
+        public void Initialize(Channel channel)
         {
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                var request = new GetDeviceListRequest();
-                var callOptions = new CallOptions(
-                    deadline: DateTime.UtcNow.AddSeconds(2),
-                    cancellationToken: cts.Token
-                );
-
-                await _client.GetDeviceListAsync(request, callOptions);
-                SetConnectionStatus(true);
+                if (channel == null)
+                {
+                    _logger.LogError("Channel is null during initialization");
+                    throw new ArgumentNullException(nameof(channel));
+                }
+                var _client = new ConnectClient(channel);
+                _client = new Connect.ConnectClient(channel);
+                _logger.LogInformation("ConnectClient initialized successfully");
             }
-            catch
+            catch (Exception ex)
             {
-                SetConnectionStatus(false);
+                _logger.LogError(ex, "Failed to initialize ConnectClient");
+                throw;
             }
         }
-
-        private void SetConnectionStatus(bool connected)
+        private bool EnsureConnected()
         {
-            if (_isConnected != connected)
+            if (!_isConnected)
             {
-                _isConnected = connected;
-                ConnectionStatusChanged?.Invoke(this, connected);
+                _logger?.LogError("gRPC not connected  ");
+                return false;
             }
             return true;
         }
 
-        private void CleanupCache(object state)
+        public RepeatedField<DeviceInfo> GetDeviceList()
         {
             try
             {
-                _operationCache.Clear();
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(5));
+                var resp = _client.GetDeviceList(new GetDeviceListRequest(), opts);
+                return resp.DeviceInfos;
             }
             catch (RpcException ex)
             {
@@ -106,31 +113,38 @@ namespace WebAppCA.Services
             }
         }
 
-        public async Task<bool> TryReconnectAsync()
+        public uint Connect(ConnectInfo connectInfo)
         {
             try
             {
-                await TestConnectionAsync();
-                return _isConnected;
+                var request = new ConnectRequest { ConnectInfo = connectInfo };
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(10));
+                var response = _client.Connect(request, opts);
+
+                _logger?.LogInformation("Successfully connected to device with ID: {DeviceID}", response.DeviceID);
+                return response.DeviceID;
             }
-            catch
+            catch (RpcException ex)
             {
                 _isConnected = false;
-                _logger?.LogError(ex, "Connect error: {Status}", ex.Status);
+                _logger?.LogError(ex, "Connect error: {Status} - {Message}", ex.Status, ex.Message);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                _isConnected = false;
+                _logger?.LogError(ex, "Unexpected error in Connect: {Message}", ex.Message);
                 return 0;
             }
         }
 
-        private async Task<T> ExecuteOperationAsync<T>(
-            Func<ConnectClient, CallOptions, Task<T>> operation,
-            int timeoutMs = 10000,
-            T defaultValue = default(T),
-            string cacheKey = null)
+        public RepeatedField<SearchDeviceInfo> SearchDevice()
         {
             try
             {
                 var request = new SearchDeviceRequest { Timeout = SEARCH_TIMEOUT_MS };
-                var response = _client.SearchDevice(request);
+                var opts = new CallOptions(deadline: DateTime.UtcNow.AddSeconds(7));
+                var response = _client.SearchDevice(request, opts);
                 return response.DeviceInfos;
             }
             catch (RpcException ex)
@@ -139,6 +153,10 @@ namespace WebAppCA.Services
                 _logger?.LogError(ex, "SearchDevice error: {0}", ex.Status);
                 return new RepeatedField<SearchDeviceInfo>();
             }
+        }
+
+        public void Disconnect(uint[] deviceIDs)
+        {
 
             try
             {
@@ -155,10 +173,10 @@ namespace WebAppCA.Services
 
         public void DisconnectAll()
         {
+
             try
             {
-                var request = new DisconnectAllRequest();
-                _client.DisconnectAll(request);
+                _client.DisconnectAll(new DisconnectAllRequest());
             }
             catch (RpcException ex)
             {
@@ -169,6 +187,8 @@ namespace WebAppCA.Services
 
         public void AddAsyncConnection(AsyncConnectInfo[] asyncConns)
         {
+            if (!EnsureConnected()) return;
+
             try
             {
                 var request = new AddAsyncConnectionRequest();
@@ -184,6 +204,7 @@ namespace WebAppCA.Services
 
         public void DeleteAsyncConnection(uint[] deviceIDs)
         {
+
             try
             {
                 var request = new DeleteAsyncConnectionRequest();
@@ -199,6 +220,8 @@ namespace WebAppCA.Services
 
         public RepeatedField<PendingDeviceInfo> GetPendingList()
         {
+            if (!EnsureConnected()) return new RepeatedField<PendingDeviceInfo>();
+
             try
             {
                 var request = new GetPendingListRequest();
@@ -215,6 +238,7 @@ namespace WebAppCA.Services
 
         public AcceptFilter GetAcceptFilter()
         {
+
             try
             {
                 var request = new GetAcceptFilterRequest();
@@ -229,8 +253,10 @@ namespace WebAppCA.Services
             }
         }
 
+
         public void SetAcceptFilter(AcceptFilter filter)
         {
+
             try
             {
                 var request = new SetAcceptFilterRequest { Filter = filter };
@@ -245,6 +271,7 @@ namespace WebAppCA.Services
 
         public void SetConnectionMode(uint[] deviceIDs, ConnectionMode mode)
         {
+
             try
             {
                 var request = new SetConnectionModeMultiRequest { ConnectionMode = mode };
@@ -260,6 +287,7 @@ namespace WebAppCA.Services
 
         public void EnableSSL(uint[] deviceIDs)
         {
+
             try
             {
                 var request = new EnableSSLMultiRequest();
@@ -275,6 +303,7 @@ namespace WebAppCA.Services
 
         public void DisableSSL(uint[] deviceIDs)
         {
+
             try
             {
                 var request = new DisableSSLMultiRequest();
@@ -290,6 +319,7 @@ namespace WebAppCA.Services
 
         public IAsyncStreamReader<StatusChange> Subscribe(int queueSize)
         {
+
             try
             {
                 var request = new SubscribeStatusRequest { QueueSize = queueSize };

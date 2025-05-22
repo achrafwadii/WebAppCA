@@ -1,6 +1,6 @@
 ﻿@model WebAppCA.Models.Utilisateur
 @{
-    ViewData["Title"] = "Ajouter un utilisateur - TimeTrack";
+    ViewData["Title"] = "Ajouter un utilisateur - TimeNeT";
 }
 
 <div class="container-fluid">
@@ -23,16 +23,6 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-2">
-                        <div class="text-center mb-3">
-                            <div class="user-photo-container bg-light rounded mb-2" style="width: 150px; height: 150px; margin: 0 auto; display: flex; align-items: center; justify-content: center;">
-                                <i class="bi bi-person-circle" style="font-size: 5rem; color: #ccc;"></i>
-                            </div>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAddPhoto">
-                                <i class="bi bi-plus"></i> Ajouter photo
-                            </button>
-                        </div>
-                    </div>
                     <div class="col-md-5">
                         <div class="mb-3">
                             <label asp-for="Prenom" class="fw-bold form-label">• Prénom</label>
@@ -174,55 +164,70 @@
                             </div>
                             <input asp-for="PIN" type="password" class="form-control mt-2" />
                         </div>
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">Authentification</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <!-- Section Cartes/Biométrie améliorée -->
+                                        <div class="mb-3">
+                                            <label class="fw-bold form-label">• Méthodes d'authentification</label>
+                                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#fingerprintModal">
+                                                    <i class="bi bi-fingerprint"></i> Empreinte digitale
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#faceModal">
+                                                    <i class="bi bi-emoji-smile"></i> Reconnaissance faciale
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#cardModal">
+                                                    <i class="bi bi-credit-card"></i> Carte RFID
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#qrcodeModal">
+                                                    <i class="bi bi-qr-code"></i> QR Code
+                                                </button>
+                                            </div>
+                                        </div>
 
-                        <div class="mb-3">
-                            <label class="fw-bold form-label">• Mode d'authentification</label>
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="authModeSwitch" name="authModeSwitch" checked>
-                                <label class="form-check-label" for="authModeSwitch">Utiliser le mode par défaut de l'équipement</label>
+                                        <!-- Champs cachés pour stocker les données -->
+                                        <input type="hidden" asp-for="BiometricData" />
+                                        <input type="hidden" asp-for="FaceData" />
+                                        <input type="hidden" asp-for="CardNumber" />
+                                        <input type="hidden" asp-for="QRCode" />
+
+                                        <!-- Modals pour la saisie des données -->
+                                        <div class="modal fade" id="cardModal" tabindex="-1">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Enregistrement de carte</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div class="mb-3">
+                                                            <label class="form-label">Scanner ou saisir le numéro de carte :</label>
+                                                            <input type="text" class="form-control" id="cardInput"
+                                                                   placeholder="Badgez la carte ou saisissez le numéro" />
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                                                        <button type="button" class="btn btn-primary"
+                                                                onclick="document.getElementById('CardNumber').value = document.getElementById('cardInput').value; $('#cardModal').modal('hide');">
+                                                            Enregistrer
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Modals similaires pour les autres méthodes (à répéter pour chaque type) -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
-
-                        <div class="mb-3">
-                            <label class="fw-bold form-label">• Cartes</label>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                <button type="button" class="btn btn-outline-secondary">
-                                    <i class="bi bi-fingerprint"></i> + Empreinte digitale
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary">
-                                    <i class="bi bi-emoji-smile"></i> + Visage
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary">
-                                    <i class="bi bi-camera"></i> + Visual Face
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary">
-                                    <i class="bi bi-credit-card"></i> + Carte
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary">
-                                    <i class="bi bi-qr-code"></i> + QR/Barcode
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="mb-3">
-                            <label asp-for="SecurityLevel" class="fw-bold form-label">• Niveau de sécurité 1:1</label>
-                            <div class="d-flex align-items-center">
-                                <input asp-for="SecurityLevel" type="range" class="form-range w-75" min="0" max="10" step="1" value="5">
-                                <span class="ms-2">Utiliser le mode par défaut de l'équipement</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="d-flex justify-content-end gap-2 mb-4">
-            <a asp-controller="User" asp-action="Index" class="btn btn-secondary">Annuler</a>
-            <button type="submit" class="btn btn-primary">Enregistrer</button>
-        </div>
     </form>
-</div>
-
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -262,6 +267,41 @@
                 });
             }
         });
+         // Gestion des modals et données biométriques
+        document.addEventListener('DOMContentLoaded', function() {
+            // Simulation de lecture biométrique
+            $('#fingerprintModal').on('show.bs.modal', function() {
+                simulateBiometricCapture('BiometricData');
+            });
+
+            // Simulation de reconnaissance faciale
+            $('#faceModal').on('show.bs.modal', function() {
+                simulateFaceCapture('FaceData');
+            });
+        });
+
+        function simulateBiometricCapture(fieldId) {
+            // Simulation d'une capture biométrique
+            setTimeout(function() {
+                const fakeData = Math.random().toString(36).substr(2, 9);
+                document.getElementById(fieldId).value = fakeData;
+                $('#' + fieldId + 'Modal').modal('hide');
+                showToast('Empreinte digitale enregistrée avec succès !');
+            }, 2000);
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast align-items-center text-white bg-success border-0';
+            toast.innerHTML = `
+
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>`;
+            document.body.appendChild(toast);
+            new bootstrap.Toast(toast).show();
+        }
     </script>
 }
 

@@ -86,7 +86,17 @@ namespace WebAppCA.Models
         [Display(Name = "Date de fin")]
         public DateTime EndDate { get; set; }
 
-        
+        [Display(Name = "Numéro de carte")]
+        public string CardNumber { get; set; }
+
+        [Display(Name = "Données biométriques")]
+        public string BiometricData { get; set; }
+
+        [Display(Name = "QR Code")]
+        public string QRCode { get; set; }
+
+        [Display(Name = "Face ID")]
+        public byte[] FaceData { get; set; }
 
         // Propriétés de navigation (pour les relations)
         [NotMapped]

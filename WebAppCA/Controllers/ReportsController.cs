@@ -1,7 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using CsvHelper;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
-using System.Text.Json;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using WebAppCA.Data;
 using WebAppCA.Models;
 
@@ -16,381 +23,330 @@ namespace WebAppCA.Controllers
             _context = context;
         }
 
-        [HttpGet]
         public IActionResult Index()
         {
-            return View("~/Views/Reports/Reports.cshtml");
+            return View();
         }
 
-        #region CSV Reports
-
-        [HttpPost]
-        public async Task<IActionResult> DownloadUsersReport()
+        #region User Report
+        public async Task<IActionResult> UserReport(string format = "csv")
         {
             var users = await _context.Utilisateurs.ToListAsync();
+            return format.ToLower() == "pdf"
+                ? GenerateUserPdfReport(users)
+                : GenerateUserCsvReport(users);
+        }
 
-            var csv = new StringBuilder();
-            csv.AppendLine("ID,Nom,Prenom,Email,Departement,Position,DateCreation");
+        private FileResult GenerateUserCsvReport(List<Utilisateur> users)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(users);
+            writer.Flush();
+            return File(stream.ToArray(), "text/csv", "users_report.csv");
+        }
+
+        private FileResult GenerateUserPdfReport(List<Utilisateur> users)
+        {
+            using var stream = new MemoryStream();
+            var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
+            var writer = PdfWriter.GetInstance(document, stream);
+            writer.PageEvent = new PdfReportHeaderFooter();
+
+            document.Open();
+            AddReportTitle(document, "USER MANAGEMENT REPORT", users.Count);
+
+            var table = new PdfPTable(5) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 1, 3, 3, 2, 2 });
+
+            AddTableHeader(table, "ID");
+            AddTableHeader(table, "Full Name");
+            AddTableHeader(table, "Email");
+            AddTableHeader(table, "Department");
+            AddTableHeader(table, "Position");
 
             foreach (var user in users)
             {
-                csv.AppendLine($"{user.Id},{EscapeCsv(user.Nom)},{EscapeCsv(user.Prenom)},{EscapeCsv(user.Email)},{EscapeCsv(user.Departement)},{EscapeCsv(user.Position)},{user.CreatedAt:yyyy-MM-dd HH:mm}");
+                AddTableRow(table, user.Id.ToString());
+                AddTableRow(table, user.FullName);
+                AddTableRow(table, user.Email);
+                AddTableRow(table, user.Departement);
+                AddTableRow(table, user.Position);
             }
 
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "rapport_utilisateurs.csv");
+            document.Add(table);
+            document.Close();
+            return File(stream.ToArray(), "application/pdf", "users_report.pdf");
+        }
+        #endregion
+
+        #region Presence Report
+        public async Task<IActionResult> PresenceReport(DateTime startDate, DateTime endDate, string format = "csv")
+        {
+            var presenceData = await _context.Pointages
+                .Include(p => p.Utilisateur)
+                .Where(p => p.Date >= startDate && p.Date <= endDate)
+                .ToListAsync();
+
+            return format.ToLower() == "pdf"
+                ? GeneratePresencePdfReport(presenceData)
+                : GeneratePresenceCsvReport(presenceData);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> DownloadDevicesReport()
+        private FileResult GeneratePresenceCsvReport(List<Pointage> data)
         {
-            var devices = await _context.Devices.ToListAsync();
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(data);
+            writer.Flush();
+            return File(stream.ToArray(), "text/csv", "presence_report.csv");
+        }
 
-            var csv = new StringBuilder();
-            csv.AppendLine("ID,NomDispositif,AdresseIP,Port,Description,Statut,DerniereConnexion");
+        private FileResult GeneratePresencePdfReport(List<Pointage> data)
+        {
+            using var stream = new MemoryStream();
+            var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
+            var writer = PdfWriter.GetInstance(document, stream);
+            writer.PageEvent = new PdfReportHeaderFooter();
+
+            document.Open();
+            AddReportTitle(document, "PRESENCE TRACKING REPORT", data.Count);
+
+            var table = new PdfPTable(5) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 1, 3, 2, 2, 2 });
+
+            AddTableHeader(table, "ID");
+            AddTableHeader(table, "User");
+            AddTableHeader(table, "Date");
+            AddTableHeader(table, "Entry Time");
+            AddTableHeader(table, "Exit Time");
+
+            foreach (var entry in data)
+            {
+                AddTableRow(table, entry.Id.ToString());
+                AddTableRow(table, entry.Utilisateur?.FullName ?? "N/A");
+                AddTableRow(table, entry.Date.ToString("dd MMM yyyy"));
+                AddTableRow(table, entry.HeureEntree.ToString("HH:mm"));
+                AddTableRow(table, entry.HeureSortie?.ToString("HH:mm") ?? "N/A");
+            }
+
+            document.Add(table);
+            document.Close();
+            return File(stream.ToArray(), "application/pdf", "presence_report.pdf");
+        }
+        #endregion
+
+        #region Device Report
+        public async Task<IActionResult> DeviceReport(string format = "csv")
+        {
+            var devices = await _context.Devices
+                .Select(d => new DeviceInfoModel
+                {
+                    DeviceID = d.DeviceID,
+                    DeviceName = d.DeviceName,
+                    IPAddress = d.IPAddress,
+                    Port = d.Port,
+                    Status = d.Status,
+                    LastConnection = d.LastConnectionTime
+                })
+                .ToListAsync();
+
+            return format.ToLower() == "pdf"
+                ? GenerateDevicePdfReport(devices)
+                : GenerateDeviceCsvReport(devices);
+        }
+
+        private FileResult GenerateDeviceCsvReport(List<DeviceInfoModel> devices)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(devices);
+            writer.Flush();
+            return File(stream.ToArray(), "text/csv", "devices_report.csv");
+        }
+
+        private FileResult GenerateDevicePdfReport(List<DeviceInfoModel> devices)
+        {
+            using var stream = new MemoryStream();
+            var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
+            var writer = PdfWriter.GetInstance(document, stream);
+            writer.PageEvent = new PdfReportHeaderFooter();
+
+            document.Open();
+            AddReportTitle(document, "DEVICE MANAGEMENT REPORT", devices.Count);
+
+            var table = new PdfPTable(5) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 1, 3, 2, 2, 3 });
+
+            AddTableHeader(table, "ID");
+            AddTableHeader(table, "Device Name");
+            AddTableHeader(table, "IP Address");
+            AddTableHeader(table, "Port");
+            AddTableHeader(table, "Last Connection");
 
             foreach (var device in devices)
             {
-                csv.AppendLine($"{device.DeviceID},{EscapeCsv(device.DeviceName)},{EscapeCsv(device.IPAddress)},{device.Port},{EscapeCsv(device.Description)},{EscapeCsv(device.Status)},{device.LastConnectionTime:yyyy-MM-dd HH:mm}");
+                AddTableRow(table, device.DeviceID.ToString());
+                AddTableRow(table, device.DeviceName);
+                AddTableRow(table, device.IPAddress);
+                AddTableRow(table, device.Port.ToString());
+                AddTableRow(table, device.LastConnection?.ToString("g") ?? "Never");
             }
 
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "rapport_dispositifs.csv");
+            document.Add(table);
+            document.Close();
+            return File(stream.ToArray(), "application/pdf", "devices_report.pdf");
         }
-
-        [HttpPost]
-        public async Task<IActionResult> DownloadAccessPointsReport()
-        {
-            var points = await _context.PointsAcces.ToListAsync();
-
-            var csv = new StringBuilder();
-            csv.AppendLine("ID,Nom,Description,Etat,DateCreation");
-
-            foreach (var point in points)
-            {
-                var etat = point.EstVerrouille ? "Verrouille" : "Deverrouille";
-                csv.AppendLine($"{point.Id},{EscapeCsv(point.Nom)},{EscapeCsv(point.Description)},{etat},{point.CreatedAt:yyyy-MM-dd HH:mm}");
-            }
-
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "rapport_points_acces.csv");
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> DownloadAccessReport(string dateRange = "last7days", DateTime? startDate = null, DateTime? endDate = null)
-        {
-            var pointages = await GetPointagesWithFilters(dateRange, startDate, endDate);
-
-            var csv = new StringBuilder();
-            csv.AppendLine("ID,Utilisateur,PointAcces,Date,HeureEntree,HeureSortie,Duree");
-
-            foreach (var pointage in pointages)
-            {
-                var duree = pointage.Duree?.TotalHours.ToString("F2") ?? "";
-                csv.AppendLine($"{pointage.Id},{EscapeCsv(pointage.Utilisateur.FullName)},{EscapeCsv(pointage.PointAcces.Nom)},{pointage.Date:yyyy-MM-dd},{pointage.HeureEntree:HH:mm},{pointage.HeureSortie?.ToString("HH:mm") ?? ""},{duree}");
-            }
-
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "rapport_acces.csv");
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> DownloadPresenceReport(string dateRange = "last7days", DateTime? startDate = null, DateTime? endDate = null, int? utilisateurId = null)
-        {
-            var pointages = await GetPointagesWithFilters(dateRange, startDate, endDate, utilisateurId);
-
-            // Regrouper par utilisateur et par date
-            var presenceData = pointages
-                .GroupBy(p => new { p.UtilisateurId, p.Date })
-                .Select(g => new
-                {
-                    UtilisateurNom = g.First().Utilisateur.FullName,
-                    Date = g.Key.Date,
-                    HeureEntree = g.Min(p => p.HeureEntree),
-                    HeureSortie = g.Max(p => p.HeureSortie),
-                    TotalDuree = g.Sum(p => p.Duree?.TotalHours ?? 0)
-                })
-                .OrderBy(p => p.UtilisateurNom)
-                .ThenBy(p => p.Date)
-                .ToList();
-
-            var csv = new StringBuilder();
-            csv.AppendLine("Utilisateur,Date,HeureEntree,HeureSortie,DureeTotale");
-
-            foreach (var item in presenceData)
-            {
-                csv.AppendLine($"{EscapeCsv(item.UtilisateurNom)},{item.Date:yyyy-MM-dd},{item.HeureEntree:HH:mm},{item.HeureSortie?.ToString("HH:mm") ?? ""},{item.TotalDuree:F2}");
-            }
-
-            return File(Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", "rapport_presence.csv");
-        }
-
         #endregion
-
-        #region JSON Reports
-
-        [HttpPost]
-        public async Task<IActionResult> GetStatisticsJson()
+        #region Door Report
+        public async Task<IActionResult> PorteReport(string format = "csv")
         {
-            var stats = await GetStatisticsAsync();
-            var json = JsonSerializer.Serialize(stats, new JsonSerializerOptions { WriteIndented = true });
-            return File(Encoding.UTF8.GetBytes(json), "application/json", "statistiques.json");
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> GetUsersJson()
-        {
-            var users = await _context.Utilisateurs
-                .Select(u => new
+            var doors = await _context.Doors
+                .Select(d => new DoorInfoModel
                 {
-                    u.Id,
-                    u.Nom,
-                    u.Prenom,
-                    u.Email,
-                    u.Departement,
-                    u.Position,
-                    CreatedAt = u.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                    DoorID = (Int32)d.DoorID, // Conversion explicite si nécessaire
+                    Name = d.Name,
+                    Description = d.Description,
+                    Status = d.EstOuverte ? "Open" : "Closed"
                 })
                 .ToListAsync();
 
-            var json = JsonSerializer.Serialize(users, new JsonSerializerOptions { WriteIndented = true });
-            return File(Encoding.UTF8.GetBytes(json), "application/json", "utilisateurs.json");
+            return format.ToLower() == "pdf"
+                ? GeneratePortePdfReport(doors)
+                : GeneratePorteCsvReport(doors);
         }
 
+        private FileResult GeneratePorteCsvReport(List<DoorInfoModel> doors)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(doors);
+            writer.Flush();
+            return File(stream.ToArray(), "text/csv", "doors_report.csv");
+        }
+
+        private FileResult GeneratePortePdfReport(List<DoorInfoModel> doors)
+        {
+            using var stream = new MemoryStream();
+            var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
+            var writer = PdfWriter.GetInstance(document, stream);
+            writer.PageEvent = new PdfReportHeaderFooter();
+
+            document.Open();
+            AddReportTitle(document, "DOOR ACCESS REPORT", doors.Count);
+
+            var table = new PdfPTable(4) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 1, 3, 3, 2 });
+
+            AddTableHeader(table, "ID");
+            AddTableHeader(table, "Door Name");
+            AddTableHeader(table, "Location");
+            AddTableHeader(table, "Status");
+
+            foreach (var door in doors)
+            {
+                AddTableRow(table, door.DoorID.ToString());
+                AddTableRow(table, door.Name);
+                AddTableRow(table, door.Description);
+                AddTableRow(table, door.Status);
+            }
+
+            document.Add(table);
+            document.Close();
+            return File(stream.ToArray(), "application/pdf", "doors_report.pdf");
+        }
         #endregion
 
-        #region HTML Reports
-
-        [HttpPost]
-        public async Task<IActionResult> GenerateHtmlReport(string reportType = "summary")
+        #region PDF Helpers
+        private void AddReportTitle(Document document, string titleText, int recordCount)
         {
-            var html = new StringBuilder();
-            html.AppendLine("<!DOCTYPE html>");
-            html.AppendLine("<html lang='fr'>");
-            html.AppendLine("<head>");
-            html.AppendLine("<meta charset='UTF-8'>");
-            html.AppendLine("<meta name='viewport' content='width=device-width, initial-scale=1.0'>");
-            html.AppendLine("<title>Rapport TimeTrack</title>");
-            html.AppendLine("<style>");
-            html.AppendLine("body { font-family: Arial, sans-serif; margin: 20px; }");
-            html.AppendLine("table { width: 100%; border-collapse: collapse; margin: 20px 0; }");
-            html.AppendLine("th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }");
-            html.AppendLine("th { background-color: #f2f2f2; }");
-            html.AppendLine(".header { text-align: center; margin-bottom: 30px; }");
-            html.AppendLine(".stats { display: flex; justify-content: space-around; margin: 20px 0; }");
-            html.AppendLine(".stat-card { text-align: center; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }");
-            html.AppendLine("</style>");
-            html.AppendLine("</head>");
-            html.AppendLine("<body>");
-
-            html.AppendLine("<div class='header'>");
-            html.AppendLine("<h1>Rapport TimeTrack</h1>");
-            html.AppendLine($"<p>Généré le {DateTime.Now:dd/MM/yyyy à HH:mm}</p>");
-            html.AppendLine("</div>");
-
-            if (reportType == "summary" || reportType == "all")
+            var title = new Paragraph(titleText,
+                new Font(Font.FontFamily.HELVETICA, 18, Font.BOLD, BaseColor.DARK_GRAY))
             {
-                var stats = await GetStatisticsAsync();
-                html.AppendLine("<div class='stats'>");
-                html.AppendLine($"<div class='stat-card'><h3>{stats.UserCount}</h3><p>Utilisateurs</p></div>");
-                html.AppendLine($"<div class='stat-card'><h3>{stats.DeviceCount}</h3><p>Dispositifs</p></div>");
-                html.AppendLine($"<div class='stat-card'><h3>{stats.DoorCount}</h3><p>Points d'accès</p></div>");
-                html.AppendLine($"<div class='stat-card'><h3>{stats.TodayAccessCount}</h3><p>Accès aujourd'hui</p></div>");
-                html.AppendLine("</div>");
-            }
+                SpacingAfter = 20f,
+                Alignment = Element.ALIGN_CENTER
+            };
+            document.Add(title);
 
-            if (reportType == "users" || reportType == "all")
+            var infoTable = new PdfPTable(3)
             {
-                var users = await _context.Utilisateurs.ToListAsync();
-                html.AppendLine("<h2>Utilisateurs</h2>");
-                html.AppendLine("<table>");
-                html.AppendLine("<tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Email</th><th>Département</th></tr>");
+                WidthPercentage = 70,
+                SpacingAfter = 15f
+            };
+            infoTable.SetWidths(new[] { 2, 3, 2 });
 
-                foreach (var user in users)
-                {
-                    html.AppendLine($"<tr><td>{user.Id}</td><td>{user.Nom}</td><td>{user.Prenom}</td><td>{user.Email}</td><td>{user.Departement}</td></tr>");
-                }
-                html.AppendLine("</table>");
-            }
+            AddInfoCell(infoTable, "Report Date:", DateTime.Now.ToString("f"));
+            AddInfoCell(infoTable, "Total Records:", recordCount.ToString());
+            AddInfoCell(infoTable, "Generated By:", User.Identity?.Name ?? "System");
 
-            if (reportType == "access" || reportType == "all")
-            {
-                var pointages = await _context.Pointages
-                    .Include(p => p.Utilisateur)
-                    .Include(p => p.PointAcces)
-                    .Where(p => p.Date >= DateTime.Today.AddDays(-7))
-                    .OrderByDescending(p => p.DateHeure)
-                    .Take(50)
-                    .ToListAsync();
-
-                html.AppendLine("<h2>Derniers Accès (7 derniers jours)</h2>");
-                html.AppendLine("<table>");
-                html.AppendLine("<tr><th>Utilisateur</th><th>Point d'Accès</th><th>Date</th><th>Heure</th><th>Durée</th></tr>");
-
-                foreach (var pointage in pointages)
-                {
-                    var duree = pointage.Duree?.TotalHours.ToString("F1") + "h" ?? "-";
-                    html.AppendLine($"<tr><td>{pointage.Utilisateur.FullName}</td><td>{pointage.PointAcces.Nom}</td><td>{pointage.Date:dd/MM/yyyy}</td><td>{pointage.HeureEntree:HH:mm}</td><td>{duree}</td></tr>");
-                }
-                html.AppendLine("</table>");
-            }
-
-            html.AppendLine("</body>");
-            html.AppendLine("</html>");
-
-            return File(Encoding.UTF8.GetBytes(html.ToString()), "text/html", $"rapport_{reportType}_{DateTime.Now:yyyyMMdd}.html");
+            document.Add(infoTable);
         }
 
-        #endregion
-
-        #region API Endpoints pour AJAX
-
-        [HttpGet]
-        public async Task<JsonResult> GetDashboardStats()
+        private void AddInfoCell(PdfPTable table, string label, string value)
         {
-            var stats = await GetStatisticsAsync();
-            return Json(stats);
+            table.AddCell(new Phrase(label,
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD)));
+            table.AddCell(new Phrase(value,
+                new Font(Font.FontFamily.HELVETICA, 10)));
         }
 
-        [HttpGet]
-        public async Task<JsonResult> GetRecentAccess(int count = 10)
+        private void AddTableHeader(PdfPTable table, string header)
         {
-            var pointages = await _context.Pointages
-                .Include(p => p.Utilisateur)
-                .Include(p => p.PointAcces)
-                .OrderByDescending(p => p.DateHeure)
-                .Take(count)
-                .Select(p => new
-                {
-                    p.Id,
-                    Utilisateur = p.Utilisateur.FullName,
-                    PointAcces = p.PointAcces.Nom,
-                    Date = p.Date.ToString("dd/MM/yyyy"),
-                    Heure = p.HeureEntree.ToString("HH:mm"),
-                    Duree = p.Duree.HasValue ? $"{p.Duree.Value.TotalHours:F1}h" : "-"
-                })
-                .ToListAsync();
-
-            return Json(pointages);
-        }
-
-        #endregion
-
-        #region Helper Methods
-
-        private string EscapeCsv(string field)
-        {
-            if (string.IsNullOrEmpty(field))
-                return "";
-
-                using (var range = wsStats.Cells[1, 1, 1, 2])
-                {
-                    range.Style.Font.Bold = true;
-                    range.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    range.Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
-                }
-
-                var stats = await GetStatisticsAsync();
-
-                row = 2;
-                wsStats.Cells[row, 1].Value = "Nombre total d'utilisateurs";
-                wsStats.Cells[row, 2].Value = stats.UserCount;
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Nombre total de dispositifs";
-                wsStats.Cells[row, 2].Value = stats.DeviceCount;
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Nombre total de portes";
-                wsStats.Cells[row, 2].Value = stats.DoorCount;
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Nombre d'accès aujourd'hui";
-                wsStats.Cells[row, 2].Value = stats.TodayAccessCount;
-
-                wsStats.Cells[row, 1].Value = "Nombre d'accès aujourd'hui";
-                wsStats.Cells[row, 2].Value = stats.TodayAccessCount;
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Utilisateurs actifs (7 jours)";
-                wsStats.Cells[row, 2].Value = stats.ActiveUsersLast7Days;
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Durée moyenne par accès";
-                wsStats.Cells[row, 2].Value = stats.AverageAccessDuration?.TotalHours ?? 0;
-                wsStats.Cells[row, 2].Style.Numberformat.Format = "0.00\" h\"";
-                row++;
-
-                wsStats.Cells[row, 1].Value = "Point d'accès le plus utilisé";
-                wsStats.Cells[row, 2].Value = stats.MostUsedAccessPoint;
-                row++;
-
-// Formatage automatique des colonnes
-wsStats.Cells.AutoFitColumns();
-
-// Générer le fichier
-var stream = new MemoryStream();
-package.SaveAs(stream);
-stream.Position = 0;
-
-return File(stream, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Rapports_Complets.xlsx");
-            }
-        }
-
-        private async Task<dynamic> GetStatisticsAsync()
-{
-    return new
-    {
-        UserCount = await _context.Utilisateurs.CountAsync(),
-        DeviceCount = await _context.Devices.CountAsync(),
-        DoorCount = await _context.PointsAcces.CountAsync(),
-        TodayAccessCount = await _context.Pointages.CountAsync(p => p.Date == DateTime.Today),
-        ActiveUsersLast7Days = await _context.Pointages
-            .Where(p => p.Date >= DateTime.Today.AddDays(-7))
-            .Select(p => p.UtilisateurId)
-            .Distinct()
-            .CountAsync(),
-        AverageAccessDuration = await _context.Pointages
-            .AverageAsync(p => p.Duree.HasValue ? p.Duree.Value.TotalHours : 0),
-        MostUsedAccessPoint = await _context.Pointages
-            .GroupBy(p => p.PointAccesId)
-            .OrderByDescending(g => g.Count())
-            .Select(g => g.First().PointAcces.Nom)
-            .FirstOrDefaultAsync()
-    };
-}
-
-#endregion
-
-#region Helpers
-
-private async Task<List<Pointage>> GetPointagesWithFilters(string dateRange, DateTime? startDate, DateTime? endDate, int? utilisateurId = null)
-{
-    IQueryable<Pointage> query = _context.Pointages
-        .Include(p => p.Utilisateur)
-        .Include(p => p.PointAcces);
-
-            if (utilisateurId.HasValue)
+            var cell = new PdfPCell(new Phrase(header,
+                new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, BaseColor.WHITE)))
             {
-                query = query.Where(p => p.UtilisateurId == utilisateurId.Value);
+                BackgroundColor = new BaseColor(59, 89, 152),
+                Padding = 5,
+                HorizontalAlignment = Element.ALIGN_CENTER
+            };
+            table.AddCell(cell);
+        }
+
+        private void AddTableRow(PdfPTable table, string text, BaseColor color = null)
+        {
+            var font = color == null
+                ? new Font(Font.FontFamily.HELVETICA, 10)
+                : new Font(Font.FontFamily.HELVETICA, 10, Font.NORMAL, color);
+
+            var cell = new PdfPCell(new Phrase(text, font))
+            {
+                Padding = 5,
+                HorizontalAlignment = Element.ALIGN_CENTER
+            };
+            table.AddCell(cell);
+        }
+
+        public class PdfReportHeaderFooter : PdfPageEventHelper
+        {
+            public override void OnEndPage(PdfWriter writer, Document document)
+            {
+                // Header
+                var header = new Phrase("Secure Facility Management System - Confidential",
+                    new Font(Font.FontFamily.HELVETICA, 10, Font.BOLD, BaseColor.DARK_GRAY));
+                ColumnText.ShowTextAligned(
+                    writer.DirectContent,
+                    Element.ALIGN_LEFT,
+                    header,
+                    document.LeftMargin,
+                    document.Top + 30,
+                    0);
+
+                // Footer
+                var footer = new Phrase($"Page {writer.PageNumber} • {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                    new Font(Font.FontFamily.HELVETICA, 9, Font.ITALIC));
+                ColumnText.ShowTextAligned(
+                    writer.DirectContent,
+                    Element.ALIGN_CENTER,
+                    footer,
+                    (document.Right - document.Left) / 2 + document.LeftMargin,
+                    document.Bottom - 20,
+                    0);
             }
-
-    switch (dateRange)
-    {
-        case "today":
-            query = query.Where(p => p.Date == DateTime.Today);
-            break;
-        case "yesterday":
-            query = query.Where(p => p.Date == DateTime.Today.AddDays(-1));
-            break;
-        case "last7days":
-            query = query.Where(p => p.Date >= DateTime.Today.AddDays(-7));
-            break;
-        case "custom" when startDate.HasValue && endDate.HasValue:
-            query = query.Where(p => p.Date >= startDate.Value && p.Date <= endDate.Value);
-            break;
-    }
-
-    return await query.OrderByDescending(p => p.DateHeure).ToListAsync();
-}
-
-
+        }
         #endregion
     }
 }
