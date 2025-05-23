@@ -106,7 +106,7 @@ namespace WebAppCA.Models
         public List<int> AccessibleDoors { get; set; } = new List<int>();
 
         // Propriétés complémentaires pour l'affichage
-        [NotMapped]
+        [NotMapped] // Si FullName est une propriété calculée
         public string FullName => $"{Prenom} {Nom}";
 
         [NotMapped]

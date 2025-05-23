@@ -13,7 +13,7 @@ namespace WebAppCA.Services
     public class ConnectSvc : connect.Connect.ConnectClient
     {
         private const string GATEWAY_CA_FILE = "Certs/ca.crt";
-        private const string GATEWAY_ADDR = "192.168.0.2";
+        private const string GATEWAY_ADDR = "192.168.0.246";
         private const int GATEWAY_PORT = 4000;
         private const int SEARCH_TIMEOUT_MS = 5000;
         private readonly ILogger<ConnectSvc> _logger;

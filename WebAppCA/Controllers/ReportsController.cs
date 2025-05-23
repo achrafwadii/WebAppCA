@@ -80,21 +80,121 @@ namespace WebAppCA.Controllers
             return File(stream.ToArray(), "application/pdf", "users_report.pdf");
         }
         #endregion
-
-        #region Presence Report
-        public async Task<IActionResult> PresenceReport(DateTime startDate, DateTime endDate, string format = "csv")
+        #region Monthly Hours Report
+        public async Task<IActionResult> MonthlyHoursReport(string month, string format = "csv")
         {
-            var presenceData = await _context.Pointages
-                .Include(p => p.Utilisateur)
-                .Where(p => p.Date >= startDate && p.Date <= endDate)
-                .ToListAsync();
+            if (!DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture, DateTimeStyles.None, out var selectedMonth))
+            {
+                return BadRequest("Invalid month format. Use YYYY-MM");
+            }
+
+            var startDate = new DateTime(selectedMonth.Year, selectedMonth.Month, 1);
+            var endDate = startDate.AddMonths(1).AddDays(-1);
+
+            var query = _context.Pointages
+                .Where(p => p.Date >= startDate && p.Date <= endDate && p.HeureSortie.HasValue)
+                .Join(_context.Utilisateurs,
+                    p => p.UtilisateurId,
+                    u => u.Id,
+                    (p, u) => new { Pointage = p, Utilisateur = u })
+                .GroupBy(x => x.Utilisateur.Id)
+                .Select(g => new {
+                    UserId = g.Key,
+                    FirstRecord = g.First(),
+                    TotalSeconds = g.Sum(x =>
+                        EF.Functions.DateDiffSecond(
+                            x.Pointage.HeureEntree,
+                            x.Pointage.HeureSortie.Value
+                        )
+                    )
+                });
+
+            var dbResults = await query.ToListAsync();
+
+            var monthlyData = dbResults.Select(r => new MonthlyHoursEntry
+            {
+                UserName = $"{r.FirstRecord.Utilisateur.Prenom} {r.FirstRecord.Utilisateur.Nom}",
+                MonthYear = startDate.ToString("MMMM yyyy"),
+                TotalHours = FormatTotalHours(r.TotalSeconds)
+            }).ToList();
 
             return format.ToLower() == "pdf"
-                ? GeneratePresencePdfReport(presenceData)
-                : GeneratePresenceCsvReport(presenceData);
+                ? GenerateMonthlyHoursPdfReport(monthlyData, startDate.ToString("MMMM yyyy"))
+                : GenerateMonthlyHoursCsvReport(monthlyData);
         }
 
-        private FileResult GeneratePresenceCsvReport(List<Pointage> data)
+        private string FormatTotalHours(int totalSeconds)
+        {
+            var totalHours = totalSeconds / 3600.0;
+            var hours = (int)totalHours;
+            var minutes = (int)((totalHours - hours) * 60);
+            return $"{hours}h {minutes:00}m";
+        }
+  
+        private FileResult GenerateMonthlyHoursCsvReport(List<MonthlyHoursEntry> data)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream);
+            using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
+            csv.WriteRecords(data);
+            writer.Flush();
+            return File(stream.ToArray(), "text/csv", "monthly_hours_report.csv");
+        }
+
+        private FileResult GenerateMonthlyHoursPdfReport(List<MonthlyHoursEntry> data, string monthYear)
+        {
+            using var stream = new MemoryStream();
+            var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
+            var writer = PdfWriter.GetInstance(document, stream);
+            writer.PageEvent = new PdfReportHeaderFooter();
+
+            document.Open();
+            AddReportTitle(document, $"MONTHLY WORK HOURS REPORT - {monthYear}", data.Count);
+
+            var table = new PdfPTable(3) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 3, 2, 3 });
+
+            AddTableHeader(table, "User");
+            AddTableHeader(table, "Month");
+            AddTableHeader(table, "Total Hours");
+
+            foreach (var entry in data)
+            {
+                AddTableRow(table, entry.UserName);
+                AddTableRow(table, entry.MonthYear);
+                AddTableRow(table, entry.TotalHours);
+            }
+
+            document.Add(table);
+            document.Close();
+            return File(stream.ToArray(), "application/pdf", $"monthly_hours_report_{monthYear.Replace(" ", "_")}.pdf");
+        }
+        #endregion
+        #region Presence Report
+        public async Task<IActionResult> PresenceReport(DateTime startDate, DateTime endDate, string format = "csv")
+{
+    var presenceData = await _context.Pointages
+        .Include(p => p.Utilisateur)
+        .Where(p => p.Date >= startDate && p.Date <= endDate)
+        .Select(p => new PresenceReportEntry
+        {
+            Id = p.Id,
+            UserName = p.Utilisateur.FullName,
+            Date = p.Date,
+            HeureEntree = p.HeureEntree,
+            HeureSortie = p.HeureSortie,
+            Duration = p.HeureSortie.HasValue
+                ? $"{(int)(p.HeureSortie.Value - p.HeureEntree).TotalHours}h {(p.HeureSortie.Value - p.HeureEntree).Minutes}m"
+                : "N/A"
+        })
+        .ToListAsync();
+
+    return format.ToLower() == "pdf"
+        ? GeneratePresencePdfReport(presenceData)
+        : GeneratePresenceCsvReport(presenceData);
+}
+
+        private FileResult GeneratePresenceCsvReport(List<PresenceReportEntry> data)
         {
             using var stream = new MemoryStream();
             using var writer = new StreamWriter(stream);
@@ -104,7 +204,7 @@ namespace WebAppCA.Controllers
             return File(stream.ToArray(), "text/csv", "presence_report.csv");
         }
 
-        private FileResult GeneratePresencePdfReport(List<Pointage> data)
+        private FileResult GeneratePresencePdfReport(List<PresenceReportEntry> data)
         {
             using var stream = new MemoryStream();
             var document = new Document(PageSize.A4.Rotate(), 10, 10, 30, 20);
@@ -114,22 +214,24 @@ namespace WebAppCA.Controllers
             document.Open();
             AddReportTitle(document, "PRESENCE TRACKING REPORT", data.Count);
 
-            var table = new PdfPTable(5) { WidthPercentage = 100 };
-            table.SetWidths(new[] { 1, 3, 2, 2, 2 });
+            var table = new PdfPTable(6) { WidthPercentage = 100 };
+            table.SetWidths(new[] { 1, 3, 2, 2, 2, 3 });
 
             AddTableHeader(table, "ID");
             AddTableHeader(table, "User");
             AddTableHeader(table, "Date");
             AddTableHeader(table, "Entry Time");
             AddTableHeader(table, "Exit Time");
+            AddTableHeader(table, "Duration"); // New column
 
             foreach (var entry in data)
             {
                 AddTableRow(table, entry.Id.ToString());
-                AddTableRow(table, entry.Utilisateur?.FullName ?? "N/A");
+                AddTableRow(table, entry.UserName);
                 AddTableRow(table, entry.Date.ToString("dd MMM yyyy"));
                 AddTableRow(table, entry.HeureEntree.ToString("HH:mm"));
                 AddTableRow(table, entry.HeureSortie?.ToString("HH:mm") ?? "N/A");
+                AddTableRow(table, entry.Duration);
             }
 
             document.Add(table);

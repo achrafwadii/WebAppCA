@@ -51,6 +51,34 @@
                 </div>
             </div>
         </div>
+        <!-- Monthly Hours Report -->
+        <div class="col-md-6 col-lg-3 mb-4">
+            <div class="card h-100 shadow">
+                <div class="card-header bg-primary text-white">
+                    <i class="fas fa-chart-bar me-2"></i>Monthly Hours Report
+                </div>
+                <div class="card-body">
+                    <form asp-action="MonthlyHoursReport" method="get">
+                        <div class="mb-3">
+                            <label class="form-label">Select Month</label>
+                            <input type="month"
+                                   name="month"
+                                   class="form-control form-control-sm"
+                                   required
+                                   max="@DateTime.Now.ToString("yyyy-MM")">
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="format" value="csv" class="btn btn-outline-success btn-sm">
+                                <i class="fas fa-file-csv me-1"></i>CSV
+                            </button>
+                            <button type="submit" name="format" value="pdf" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Devices Report -->
         <div class="col-md-6 col-lg-3 mb-4">
