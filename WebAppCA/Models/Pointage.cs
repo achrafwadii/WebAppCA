@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WebAppCA.Models
 {
@@ -38,7 +39,10 @@ namespace WebAppCA.Models
         // Propriétés de navigation
         public virtual Utilisateur Utilisateur { get; set; }
         public virtual PointAcces PointAcces { get; set; }
+        [NotMapped]
         public string TypeAction { get; set; }
+
+        [NotMapped]
         public bool EstValide { get; set; }
     }
 

@@ -18,49 +18,61 @@ namespace WebAppCA.Controllers
         {
             _context = context;
         }
-        
+
         // GET: Presence
-        public async Task<IActionResult> Index(FiltrePresence filtre)
+        public async Task<IActionResult> Index(DateTime? DateDebut, DateTime? DateFin, int? UtilisateurId)
         {
-            // Récupérer la liste des utilisateurs pour le dropdown
-            ViewBag.Utilisateurs = await _context.Utilisateurs
-                .OrderBy(u => u.Nom)
-                .Select(u => new SelectListItem
+            try
+            {
+                // Récupérer la liste des utilisateurs pour le dropdown
+                ViewBag.Utilisateurs = await _context.Utilisateurs
+                    .OrderBy(u => u.Nom)
+                    .Select(u => new SelectListItem
+                    {
+                        Value = u.Id.ToString(),
+                        Text = u.FullName
+                    })
+                    .ToListAsync();
+
+                // Préparer la requête
+                var query = _context.Pointages
+                    .Include(p => p.Utilisateur)
+                    .Include(p => p.PointAcces)
+                    .AsQueryable();
+
+                // Appliquer les filtres
+                if (DateDebut.HasValue)
                 {
-                    Value = u.Id.ToString(),
-                    Text = u.FullName
-                })
-                .ToListAsync();
+                    query = query.Where(p => p.Date >= DateDebut.Value.Date);
+                }
 
-            // Préparer la requête
-            var query = _context.Pointages
-                .Include(p => p.Utilisateur)
-                .Include(p => p.PointAcces)
-                .AsQueryable();
+                if (DateFin.HasValue)
+                {
+                    query = query.Where(p => p.Date <= DateFin.Value.Date);
+                }
 
-            // Appliquer les filtres
-            if (filtre.DateDebut.HasValue)
-            {
-                query = query.Where(p => p.Date >= filtre.DateDebut.Value.Date);
+                if (UtilisateurId.HasValue)
+                {
+                    query = query.Where(p => p.UtilisateurId == UtilisateurId.Value);
+                }
+
+                // Ordonner les résultats
+                var pointages = await query
+                    .OrderByDescending(p => p.Date)
+                    .ThenByDescending(p => p.HeureEntree)
+                    .ToListAsync();
+
+                return View(pointages);
             }
-
-            if (filtre.DateFin.HasValue)
+            catch (Exception ex)
             {
-                query = query.Where(p => p.Date <= filtre.DateFin.Value.Date);
+                // Log the exception (you should use a proper logging framework)
+                Console.WriteLine($"Error in Index: {ex.Message}");
+
+                // Return empty list in case of error
+                ViewBag.Utilisateurs = new List<SelectListItem>();
+                return View(new List<Pointage>());
             }
-
-            if (filtre.UtilisateurId.HasValue)
-            {
-                query = query.Where(p => p.UtilisateurId == filtre.UtilisateurId.Value);
-            }
-
-            // Ordonner les résultats
-            var pointages = await query
-                .OrderByDescending(p => p.Date)
-                .ThenByDescending(p => p.HeureEntree)
-                .ToListAsync();
-
-            return View(pointages);
         }
 
         // GET: Presence/Details/5
@@ -122,8 +134,8 @@ namespace WebAppCA.Controllers
                 return NotFound();
             }
 
-            ViewBag.Utilisateurs = new SelectList(_context.Utilisateurs, "Id", "NomComplet", pointage.UtilisateurId);
-            ViewBag.PointsAcces = new SelectList(_context.PointsAcces, "Id", "Nom", pointage.PointAccesId);
+            ViewBag.Utilisateurs = new SelectList(await _context.Utilisateurs.ToListAsync(), "Id", "FullName", pointage.UtilisateurId);
+            ViewBag.PointsAcces = new SelectList(await _context.PointsAcces.ToListAsync(), "Id", "Nom", pointage.PointAccesId);
 
             return View(pointage);
         }
@@ -159,8 +171,8 @@ namespace WebAppCA.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            ViewBag.Utilisateurs = new SelectList(_context.Utilisateurs, "Id", "NomComplet", pointage.UtilisateurId);
-            ViewBag.PointsAcces = new SelectList(_context.PointsAcces, "Id", "Nom", pointage.PointAccesId);
+            ViewBag.Utilisateurs = new SelectList(await _context.Utilisateurs.ToListAsync(), "Id", "FullName", pointage.UtilisateurId);
+            ViewBag.PointsAcces = new SelectList(await _context.PointsAcces.ToListAsync(), "Id", "Nom", pointage.PointAccesId);
 
             return View(pointage);
         }
@@ -171,8 +183,11 @@ namespace WebAppCA.Controllers
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var pointage = await _context.Pointages.FindAsync(id);
-            _context.Pointages.Remove(pointage);
-            await _context.SaveChangesAsync();
+            if (pointage != null)
+            {
+                _context.Pointages.Remove(pointage);
+                await _context.SaveChangesAsync();
+            }
             return RedirectToAction(nameof(Index));
         }
 
@@ -204,23 +219,25 @@ namespace WebAppCA.Controllers
 
             return Json(pointsAcces);
         }
-        public IActionResult Attendance()
+
+        public async Task<IActionResult> Attendance()
         {
             // Populate Utilisateurs before returning the view
-            ViewBag.Utilisateurs = _context.Utilisateurs
+            ViewBag.Utilisateurs = await _context.Utilisateurs
                 .Select(u => new SelectListItem
                 {
                     Value = u.Id.ToString(),
                     Text = u.FullName
                 })
-                .ToList();
+                .ToListAsync();
 
             // Your existing logic for filtering and retrieving pointages
-            var pointages = _context.Pointages
+            var pointages = await _context.Pointages
                 .Include(p => p.Utilisateur)
                 .Include(p => p.PointAcces)
-                // Apply any filtering logic
-                .ToList();
+                .OrderByDescending(p => p.Date)
+                .ThenByDescending(p => p.HeureEntree)
+                .ToListAsync();
 
             return View(pointages);
         }

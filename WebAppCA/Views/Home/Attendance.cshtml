@@ -10,10 +10,9 @@
             <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#modalAjouterPointage">
                 <i class="bi bi-plus-circle"></i> Ajouter un pointage
             </button>
-            
         </div>
     </div>
-    
+
     <div class="card shadow-sm">
         <div class="card-body">
             @using (Html.BeginForm("Index", "Presence", FormMethod.Get, new { id = "formFiltre" }))
@@ -29,19 +28,23 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Utilisateur</label>
-                        <select name="Utilisateur" class="form-select">
-                        <option value="">Tous les utilisateurs</option>
-                        @if (ViewBag.Utilisateurs != null)
-                        {
-                            @foreach (var utilisateur in ViewBag.Utilisateurs)
+                        <select name="UtilisateurId" class="form-select">
+                            <option value="">Tous les utilisateurs</option>
+                            @if (ViewBag.Utilisateurs != null)
                             {
-                                <option value="@utilisateur.Value"
-                                        selected="@(Context.Request.Query["UtilisateurId"] == utilisateur.Value)">
-                                    @utilisateur.Text
-                                </option>
+                                @foreach (var utilisateur in ViewBag.Utilisateurs)
+                                {
+                                    if (Context.Request.Query["UtilisateurId"] == utilisateur.Value)
+                                    {
+                                        <option value="@utilisateur.Value" selected>@utilisateur.Text</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@utilisateur.Value">@utilisateur.Text</option>
+                                    }
+                                }
                             }
-                        }
-						</select>
+                        </select>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
@@ -50,7 +53,7 @@
                     </div>
                 </div>
             }
-            
+
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead class="table-light">
@@ -70,20 +73,20 @@
                             foreach (var pointage in Model)
                             {
                                 <tr>
-                                    <td>@pointage.Utilisateur.FullName</td>
+                                    <td>@(pointage.Utilisateur?.FullName ?? "N/A")</td>
                                     <td>@pointage.Date.ToString("dd/MM/yyyy")</td>
                                     <td>@pointage.HeureEntree.ToString("HH:mm")</td>
                                     <td>@(pointage.HeureSortie?.ToString("HH:mm") ?? "-")</td>
                                     <td>@(pointage.Duree.HasValue ? $"{pointage.Duree.Value.Hours:D2}h{pointage.Duree.Value.Minutes:D2}" : "-")</td>
-                                    <td>@pointage.PointAcces.Nom</td>
+                                    <td>@(pointage.PointAcces?.Nom ?? "N/A")</td>
                                     <td class="text-end">
                                         <div class="btn-group">
                                             <a href="@Url.Action("Edit", new { id = pointage.Id })" class="btn btn-sm btn-outline-primary">
                                                 <i class="bi bi-pencil"></i>
                                             </a>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                    data-bs-toggle="modal" 
-                                                    data-bs-target="#modalSupprimerPointage" 
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalSupprimerPointage"
                                                     data-id="@pointage.Id">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -121,21 +124,16 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="utilisateurId" class="form-label">Utilisateur</label>
-                        <select name="Utilisateur" class="form-select">
-                            <option value="">Tous les utilisateurs</option>
+                        <select name="UtilisateurId" id="utilisateurId" class="form-select" required>
+                            <option value="">Sélectionner un utilisateur</option>
                             @if (ViewBag.Utilisateurs != null)
                             {
                                 foreach (var utilisateur in ViewBag.Utilisateurs)
                                 {
-                                    <option value="@utilisateur.Value"
-                                            selected="@(Context.Request.Query["UtilisateurId"] == utilisateur.Value)">
+                                    <option value="@utilisateur.Value">
                                         @utilisateur.Text
                                     </option>
                                 }
-                            }
-                            else
-                            {
-                                <option disabled>Aucun utilisateur disponible</option>
                             }
                         </select>
                         <div class="invalid-feedback"></div>
@@ -210,29 +208,34 @@
                 $.each(data, function(index, item) {
                     select.append($('<option>').val(item.id).text(item.nom));
                 });
+            }).fail(function() {
+                console.error('Failed to load points d\'accès');
             });
-            
+
             // Initialiser l'heure d'entrée avec l'heure actuelle
             const now = new Date();
             const hours = now.getHours().toString().padStart(2, '0');
             const minutes = now.getMinutes().toString().padStart(2, '0');
             $('#heureEntree').val(`${hours}:${minutes}`);
-            
+
             // Soumission du formulaire d'ajout de pointage
             $('#formAjouterPointage').on('submit', function(e) {
                 e.preventDefault();
-                
+
                 // Réinitialiser les erreurs
                 $(this).find('.is-invalid').removeClass('is-invalid');
-                
+
                 // Récupérer les données du formulaire
                 const formData = $(this).serialize();
-                
+
                 // Envoyer la requête AJAX
                 $.ajax({
                     url: '@Url.Action("Create")',
                     type: 'POST',
                     data: formData,
+                    headers: {
+                        'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                    },
                     success: function() {
                         // Fermer le modal et rafraîchir la page
                         $('#modalAjouterPointage').modal('hide');
@@ -246,15 +249,19 @@
                                 if (errors.hasOwnProperty(key)) {
                                     const fieldName = key.charAt(0).toLowerCase() + key.slice(1);
                                     const field = $('#' + fieldName);
-                                    field.addClass('is-invalid');
-                                    field.siblings('.invalid-feedback').text(errors[key][0]);
+                                    if (field.length) {
+                                        field.addClass('is-invalid');
+                                        field.siblings('.invalid-feedback').text(errors[key][0]);
+                                    }
                                 }
                             }
+                        } else {
+                            console.error('Error creating pointage:', xhr);
                         }
                     }
                 });
             });
-            
+
             // Configuration du modal de suppression
             $('#modalSupprimerPointage').on('show.bs.modal', function(event) {
                 const button = $(event.relatedTarget);
