@@ -38,6 +38,8 @@ namespace WebAppCA.Models
         // Propriétés de navigation
         public virtual Utilisateur Utilisateur { get; set; }
         public virtual PointAcces PointAcces { get; set; }
+        public string TypeAction { get; set; }
+        public bool EstValide { get; set; }
     }
 
 

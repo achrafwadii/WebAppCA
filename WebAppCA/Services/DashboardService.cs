@@ -32,7 +32,7 @@ namespace WebAppCA.Services
 
                 // Compter le nombre de portes différentes dans les pointages
                 // Normalement, cela devrait venir d'une table dédiée aux portes
-                dashboard.DoorCount = await _context.PointsAcces.CountAsync();
+                dashboard.DoorCount = await _context.Doors.CountAsync();
 
                 // Obtenir le timestamp de début en fonction du timeFrame
                 DateTime startDate = DateTime.Today; // Par défaut aujourd'hui
@@ -50,7 +50,7 @@ namespace WebAppCA.Services
                 }
 
                 // Compter les accès pour la période spécifiée
-                dashboard.TodayAccessCount = await _context.Pointages
+                dashboard.AccessCount = await _context.Pointages
                     .Where(p => p.Date >= startDate)
                     .CountAsync();
 

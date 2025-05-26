@@ -39,7 +39,7 @@ AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport
 builder.Services.AddGrpcClient<ConnectClient>(options =>
 {
     // Utilisez HTTPS au lieu de HTTP
-    options.Address = new Uri("https://localhost:4000");
+    options.Address = new Uri("http://192.168.3.127:4000");
 })
 .ConfigurePrimaryHttpMessageHandler(() =>
 {
@@ -52,14 +52,13 @@ builder.Services.AddGrpcClient<ConnectClient>(options =>
 });
 builder.Services.AddGrpcClient<ConnectClient>(options =>
 {
-    options.Address = new Uri("http://localhost:4000");
+    options.Address = new Uri("http://192.168.3.127:4000");
 });
 builder.Services.AddSingleton<GatewayClient>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddSingleton<UserService>();
 builder.Services.AddScoped<DeviceDbService>();
 builder.Services.AddScoped<DeviceService>();
-builder.Services.AddScoped<DoorService>();
 builder.Services.AddScoped<DeviceGatewayService>();
 builder.Services.AddScoped<UtilisateurRepository>();
 builder.Services.AddScoped<DashboardService>();

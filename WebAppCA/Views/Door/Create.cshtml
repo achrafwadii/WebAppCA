@@ -1,0 +1,128 @@
+﻿@model WebAppCA.Models.AddDoorModel
+
+@{
+    ViewData["Title"] = "Ajouter un Point d'Accès";
+}
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>Ajouter un Point d'Accès
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form asp-action="Create" method="post">
+                        @Html.AntiForgeryToken()
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="DoorName" class="form-label">
+                                    <i class="fas fa-door-closed me-1"></i>Nom de la Porte *
+                                </label>
+                                <input asp-for="DoorName" class="form-control" placeholder="Ex: Entrée principale" />
+                                <span asp-validation-for="DoorName" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="DeviceID" class="form-label">
+                                    <i class="fas fa-microchip me-1"></i>Dispositif *
+                                </label>
+                                <select asp-for="DeviceID" class="form-select">
+                                    <option value="">Sélectionner un dispositif</option>
+                                    @foreach (var device in ViewBag.Devices as List<WebAppCA.Models.DeviceInfo> ?? new List<WebAppCA.Models.DeviceInfo>())
+                                    {
+                                        <option value="@device.DeviceID">@device.DeviceName (ID: @device.DeviceID)</option>
+                                    }
+                                </select>
+                                <span asp-validation-for="DeviceID" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="PortNumber" class="form-label">
+                                    <i class="fas fa-plug me-1"></i>Numéro de Port *
+                                </label>
+                                <input asp-for="PortNumber" type="number" min="1" max="255" class="form-control" placeholder="1-255" />
+                                <div class="form-text">Port du relais sur le dispositif (1-255)</div>
+                                <span asp-validation-for="PortNumber" class="text-danger"></span>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-info-circle me-1"></i>Informations
+                                </label>
+                                <div class="form-text">
+                                    <small>
+                                        <strong>État initial:</strong> Verrouillée<br>
+                                        <strong>ID de porte:</strong> Généré automatiquement
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Description" class="form-label">
+                                <i class="fas fa-align-left me-1"></i>Description
+                            </label>
+                            <textarea asp-for="Description" class="form-control" rows="3" placeholder="Description optionnelle du point d'accès..."></textarea>
+                            <span asp-validation-for="Description" class="text-danger"></span>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Information:</strong> Le point d'accès sera ajouté au dispositif sélectionné et sera initialement verrouillé.
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a asp-action="Index" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Retour à la liste
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save me-1"></i>Créer le Point d'Accès
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+    <script>
+        // Validation côté client pour s'assurer que tous les champs requis sont remplis
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const doorName = document.querySelector('[name="DoorName"]').value.trim();
+            const deviceId = document.querySelector('[name="DeviceID"]').value;
+            const portNumber = document.querySelector('[name="PortNumber"]').value;
+
+            if (!doorName || !deviceId || !portNumber) {
+                e.preventDefault();
+                alert('Veuillez remplir tous les champs obligatoires.');
+                return false;
+            }
+
+            if (portNumber < 1 || portNumber > 255) {
+                e.preventDefault();
+                alert('Le numéro de port doit être entre 1 et 255.');
+                return false;
+            }
+        });
+
+        // Auto-focus sur le premier champ
+        document.addEventListener('DOMContentLoaded', function() {
+            const firstInput = document.querySelector('[name="DoorName"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        });
+    </script>
+}

@@ -30,6 +30,36 @@ namespace WebAppCA.Data
             base.OnModelCreating(modelBuilder);
 
             // Configuration de la table Devices (DeviceInfo)
+            modelBuilder.Entity<DoorInfoModel>(entity =>
+    {
+        // Si vous voulez complètement ignorer ces propriétés
+        entity.Ignore(e => e.CreatedAt);
+        entity.Ignore(e => e.UpdatedAt);
+        
+        // OU si vous voulez les mapper à des colonnes existantes avec des noms différents
+        // entity.Property(e => e.CreatedAt).HasColumnName("DateCreation");
+        // entity.Property(e => e.UpdatedAt).HasColumnName("DateModification");
+        
+        // Configuration de la table
+        entity.ToTable("Doors");
+        entity.HasKey(e => e.DoorID);
+        
+        // Configuration des propriétés
+        entity.Property(e => e.Name)
+            .IsRequired()
+            .HasMaxLength(48);
+            
+        entity.Property(e => e.Description)
+            .HasMaxLength(255);
+            
+        entity.Property(e => e.RelayPort)
+            .IsRequired();
+            
+        entity.Property(e => e.DeviceID)
+            .IsRequired();
+    });
+    
+    base.OnModelCreating(modelBuilder);
             modelBuilder.Entity<DeviceInfo>()
                 .ToTable("Devices");
 

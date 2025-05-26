@@ -5,21 +5,21 @@ namespace WebAppCA.Models
     public class AddDoorModel
     {
         [Required(ErrorMessage = "Le nom de la porte est requis")]
+        [Display(Name = "Nom du point d'accès")]
         [StringLength(48, ErrorMessage = "Le nom ne peut pas dépasser 48 caractères")]
-        [Display(Name = "Nom de la porte")]
         public string DoorName { get; set; }
 
-        [Required(ErrorMessage = "L'ID du dispositif est requis")]
-        [Display(Name = "ID du dispositif")]
-        public uint DeviceID { get; set; }
+        [Required(ErrorMessage = "L'équipement est requis")]
+        [Display(Name = "Équipement")]
+        public int? DeviceID { get; set; }
 
-        [Required(ErrorMessage = "Le port du relais est requis")]
-        [Display(Name = "Port du relais")]
-        [Range(0, 255, ErrorMessage = "Le port du relais doit être entre 0 et 255")]
-        public int PortNumber { get; set; }
+        [Required(ErrorMessage = "Le numéro de port est requis")]
+        [Display(Name = "Port")]
+        [Range(0, 255, ErrorMessage = "Le port doit être entre 0 et 255")]
+        public int? PortNumber { get; set; }
 
-        [StringLength(255)]
         [Display(Name = "Description")]
+        [StringLength(255, ErrorMessage = "La description ne peut pas dépasser 255 caractères")]
         public string Description { get; set; }
     }
 }

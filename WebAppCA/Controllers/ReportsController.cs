@@ -309,7 +309,7 @@ namespace WebAppCA.Controllers
             var doors = await _context.Doors
                 .Select(d => new DoorInfoModel
                 {
-                    DoorID = (Int32)d.DoorID, // Conversion explicite si nécessaire
+                    DoorID = d.DoorID, // Conversion explicite si nécessaire
                     Name = d.Name,
                     Description = d.Description,
                     Status = d.EstOuverte ? "Open" : "Closed"

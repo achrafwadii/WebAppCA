@@ -10,7 +10,7 @@ namespace WebAppCA.Models
         public int UserCount { get; set; }
         public int DeviceCount { get; set; }
         public int DoorCount { get; set; }
-        public int TodayAccessCount { get; set; }
+        public int AccessCount { get; set; } // Compteur dynamique selon la période
 
         // Activité récente
         public List<RecentActivityModel> RecentActivities { get; set; }
